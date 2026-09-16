@@ -15,9 +15,11 @@
     "start": "npm start -w backend",
     "db:migrate": "npm run db:migrate -w backend",
     "test": "npm test -w backend",
-    "test:integration": "npm run test:integration -w backend"
+    "test:integration": "npm run test:integration -w backend",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "concurrently": "^9.2.1",
     "prettier": "^3.9.7"
   }

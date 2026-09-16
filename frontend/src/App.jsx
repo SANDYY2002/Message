@@ -588,7 +588,7 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
         <button
           className="rail-active icon-button"
           aria-label="Conversations"
-          onClick={() => !sending && setActiveId(null)}
+          onClick={() => !sending && select(null)}
         >
           <MessageCircle size={22} />
         </button>
@@ -731,7 +731,7 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
                 className="icon-button back-button"
                 aria-label="Back to conversations"
                 disabled={sending}
-                onClick={() => setActiveId(null)}
+                onClick={() => select(null)}
               >
                 <ArrowLeft />
               </button>

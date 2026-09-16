@@ -91,6 +91,17 @@ DB_NAME=message_test DB_USER=message_test DB_PASSWORD=choose-test-password npm r
 
 Tests apply the schema automatically and cover real HTTP registration/login, Socket.IO delivery, conversation authorization, cookie flags, CSRF/origin rejection, read receipts, pagination, file validation, rejected-upload cleanup, private media, retry deduplication, logout, and expiry. GitHub Actions runs these checks with MySQL 8.4 on each deployment-branch push.
 
+### Browser verification
+
+After the integration schema has been initialized, keep the test database environment variables set and run:
+
+```bash
+npx playwright install chromium
+npm run test:e2e
+```
+
+The browser test starts the API and frontend, registers two accounts, exchanges text/images/video, checks read receipts, verifies history after refresh, and checks mobile dark mode. Screenshots and failure traces go to `test-results/`; the workflow uploads them as the `browser-verification` artifact. These are synthetic test accounts, not live user conversations.
+
 ## 4. Ubuntu production deployment
 
 Use a server with Node.js 24, MySQL 8+, Nginx, a domain, and an HTTPS certificate. Run Node as a dedicated non-root user. Install the repository in `/srv/message`, owned by that user. Create `/srv/message-data/uploads` writable by the same user, outside the checkout, so new releases preserve media.

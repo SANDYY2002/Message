@@ -11,7 +11,7 @@ A private, real-time messaging app for text, photos, and videos. Built with **Re
 - Server-side file signature checks, upload limits, storage quotas, and participant-only media access.
 - Responsive layout with device-aware light/dark mode and locally bundled fonts.
 - Idempotent message sends: retrying the same send does not create duplicate records.
-- MySQL schema migration, unit/integration tests, and GitHub Actions verification.
+- MySQL schema migration, unit/integration tests, and GitHub Actions verification, including a two-account browser test.
 
 See [SETUP.md](SETUP.md) for Windows development and HTTPS deployment instructions.
 
