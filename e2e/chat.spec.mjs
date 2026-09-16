@@ -47,6 +47,7 @@ test("two people can sign up, chat, share media, reconnect, and use mobile dark 
   await register(bob, bname, "Bob");
   await alice
     .getByRole("button", { name: "New conversation", exact: true })
+    .first()
     .click();
   await alice.getByRole("textbox", { name: "Search people" }).fill(bname);
   await alice
