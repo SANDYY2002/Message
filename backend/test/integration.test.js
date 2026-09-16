@@ -1,0 +1,372 @@
+// Runs against a real, dedicated MySQL database. Never point this at production.
+import { before, after, test } from "node:test";
+import assert from "node:assert/strict";
+import { mkdtemp, rm, readdir } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { randomUUID } from "node:crypto";
+import { spawnSync } from "node:child_process";
+import { io as connect } from "socket.io-client";
+import { video } from "./video-fixture.js";
+if (!process.env.DB_NAME?.endsWith("_test"))
+  throw new Error("Set DB_NAME to a dedicated database ending in _test.");
+process.env.NODE_ENV = "test";
+process.env.PUBLIC_ORIGIN = "http://localhost:5173";
+process.env.COOKIE_SECURE = "false";
+process.env.MAX_UPLOAD_MB = "1";
+const dir = await mkdtemp(path.join(tmpdir(), "message-test-"));
+process.env.UPLOAD_DIR = dir;
+const { query } = await import("../src/db.js");
+let runtime, base, alice, bob, eve, conversation, message, media;
+const sockets = [];
+async function request(
+  route,
+  {
+    user,
+    body,
+    method = body ? "POST" : "GET",
+    origin = process.env.PUBLIC_ORIGIN,
+    form,
+  } = {},
+) {
+  const res = await fetch(base + "/api" + route, {
+    method: form ? "POST" : method,
+    headers: {
+      ...(user ? { Cookie: user.cookie } : {}),
+      ...(origin ? { Origin: origin } : {}),
+      ...(body ? { "Content-Type": "application/json" } : {}),
+    },
+    body: form || (body ? JSON.stringify(body) : undefined),
+  });
+  let data = null;
+  if (res.headers.get("content-type")?.includes("application/json"))
+    data = await res.json();
+  return { res, data };
+}
+async function register(name) {
+  const { res, data } = await request("/auth/register", {
+    body: {
+      username: `${name}_${Date.now().toString().slice(-8)}`,
+      displayName: name,
+      password: "safe-password-123",
+    },
+  });
+  assert.equal(res.status, 201, JSON.stringify(data));
+  return { ...data.user, cookie: res.headers.get("set-cookie").split(";")[0] };
+}
+async function socketFor(user, origin = process.env.PUBLIC_ORIGIN) {
+  const socket = connect(base, {
+    transports: ["websocket"],
+    extraHeaders: { Cookie: user.cookie, Origin: origin },
+    reconnection: false,
+    timeout: 3000,
+  });
+  sockets.push(socket);
+  return socket;
+}
+function event(socket, name) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      socket.off(name, handler);
+      reject(new Error(`Timed out waiting for ${name}`));
+    }, 4000);
+    const handler = (data) => {
+      clearTimeout(timer);
+      resolve(data);
+    };
+    socket.once(name, handler);
+  });
+}
+function form(
+  text = "caption",
+  file = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=",
+    "base64",
+  ),
+  name = "photo.png",
+  mime = "image/png",
+) {
+  const data = new FormData();
+  data.append("text", text);
+  data.append("clientId", randomUUID());
+  data.append("file", new Blob([file], { type: mime }), name);
+  return data;
+}
+before(async () => {
+  const migrated = spawnSync(process.execPath, ["src/migrate.js"], {
+    cwd: new URL("../", import.meta.url),
+    env: process.env,
+    encoding: "utf8",
+  });
+  assert.equal(migrated.status, 0, migrated.stderr);
+  const { start } = await import("../src/server.js");
+  runtime = await start(0);
+  base = `http://127.0.0.1:${runtime.server.address().port}`;
+  alice = await register("alice");
+  bob = await register("bob");
+  eve = await register("eve");
+});
+after(async () => {
+  sockets.forEach((s) => s.disconnect());
+  if (runtime) await runtime.close();
+  await rm(dir, { recursive: true, force: true });
+});
+test("real MySQL authentication, chat, media, sockets, and access controls", async (t) => {
+  await t.test(
+    "cookies are HttpOnly and protected endpoints reject unauthenticated requests",
+    async () => {
+      const r = await request("/auth/login", {
+        body: { username: alice.username, password: "safe-password-123" },
+      });
+      assert.equal(r.res.status, 200);
+      assert.match(r.res.headers.get("set-cookie"), /HttpOnly/);
+      assert.match(r.res.headers.get("set-cookie"), /SameSite=Strict/);
+      assert.equal((await request("/conversations")).res.status, 401);
+      assert.equal(
+        (
+          await request("/auth/login", {
+            body: { username: alice.username, password: "wrong-password" },
+          })
+        ).res.status,
+        401,
+      );
+      assert.equal(
+        (
+          await request("/auth/register", {
+            body: {
+              username: alice.username.toUpperCase(),
+              displayName: "Duplicate",
+              password: "safe-password-123",
+            },
+          })
+        ).res.status,
+        409,
+      );
+    },
+  );
+  await t.test(
+    "cross-origin writes and socket handshakes are rejected",
+    async () => {
+      assert.equal(
+        (
+          await request("/conversations", {
+            user: alice,
+            origin: "https://evil.example",
+            body: { userId: bob.id },
+          })
+        ).res.status,
+        403,
+      );
+      const socket = await socketFor(alice, "https://evil.example");
+      await event(socket, "connect_error");
+      assert.equal(socket.connected, false);
+    },
+  );
+  await t.test(
+    "a pair shares exactly one conversation, independent of creator",
+    async () => {
+      const a = await request("/conversations", {
+        user: alice,
+        body: { userId: bob.id },
+      });
+      assert.equal(a.res.status, 201);
+      conversation = a.data.id;
+      const b = await request("/conversations", {
+        user: bob,
+        body: { userId: alice.id },
+      });
+      assert.equal(b.data.id, conversation);
+      assert.equal(
+        (
+          await request(`/conversations/${conversation}/messages`, {
+            user: eve,
+          })
+        ).res.status,
+        404,
+      );
+    },
+  );
+  let aliceSocket, bobSocket;
+  await t.test(
+    "text sends emit in real time and retries do not duplicate MySQL rows",
+    async () => {
+      aliceSocket = await socketFor(alice);
+      await event(aliceSocket, "connect");
+      bobSocket = await socketFor(bob);
+      await event(bobSocket, "connect");
+      const received = event(bobSocket, "message:new");
+      const body = { text: "Hello, Bob 👋", clientId: randomUUID() };
+      const sent = await request(`/conversations/${conversation}/messages`, {
+        user: alice,
+        body,
+      });
+      assert.equal(sent.res.status, 201, JSON.stringify(sent.data));
+      message = sent.data.message;
+      assert.equal((await received).id, message.id);
+      const retry = await request(`/conversations/${conversation}/messages`, {
+        user: alice,
+        body,
+      });
+      assert.equal(retry.res.status, 200);
+      assert.equal(retry.data.message.id, message.id);
+      const history = await request(`/conversations/${conversation}/messages`, {
+        user: bob,
+      });
+      assert.equal(
+        history.data.messages.filter((m) => m.id === message.id).length,
+        1,
+      );
+      const list = await request("/conversations", { user: bob });
+      assert.equal(list.data.conversations[0].unread, 1);
+    },
+  );
+  await t.test("only participants may send or mark messages read", async () => {
+    assert.equal(
+      (
+        await request(`/conversations/${conversation}/messages`, {
+          user: eve,
+          body: { text: "intrusion", clientId: randomUUID() },
+        })
+      ).res.status,
+      404,
+    );
+    assert.equal(
+      (
+        await request(`/conversations/${conversation}/read`, {
+          user: eve,
+          body: { messageId: message.id },
+        })
+      ).res.status,
+      404,
+    );
+    const receipt = event(aliceSocket, "conversation:read");
+    assert.equal(
+      (
+        await request(`/conversations/${conversation}/read`, {
+          user: bob,
+          body: { messageId: message.id },
+        })
+      ).res.status,
+      204,
+    );
+    assert.equal((await receipt).messageId, message.id);
+    const list = await request("/conversations", { user: bob });
+    assert.equal(list.data.conversations[0].unread, 0);
+  });
+  await t.test(
+    "uploads validate contents and media access stays private",
+    async () => {
+      const sent = await request(`/conversations/${conversation}/messages`, {
+        user: alice,
+        form: form(),
+      });
+      assert.equal(sent.res.status, 201, JSON.stringify(sent.data));
+      media = sent.data.message;
+      const privateMedia = await request(`/media/${media.id}`, { user: bob });
+      assert.equal(privateMedia.res.status, 200);
+      assert.match(privateMedia.res.headers.get("content-type"), /image\/png/);
+      await privateMedia.res.arrayBuffer();
+      assert.equal(
+        (await request(`/media/${media.id}`, { user: eve })).res.status,
+        404,
+      );
+      assert.equal((await request(`/media/${media.id}`)).res.status, 401);
+      const fake = await request(`/conversations/${conversation}/messages`, {
+        user: alice,
+        form: form("fake", Buffer.from("<script>alert(1)</script>")),
+      });
+      assert.equal(fake.res.status, 415);
+      const oversized = await request(
+        `/conversations/${conversation}/messages`,
+        { user: alice, form: form("big", Buffer.alloc(1024 * 1024 + 1)) },
+      );
+      assert.equal(oversized.res.status, 413);
+      assert.equal(
+        (await readdir(dir)).length,
+        1,
+        "Rejected uploads must not leave files",
+      );
+    },
+  );
+  await t.test("message pagination is stable and chronological", async () => {
+    for (let i = 0; i < 52; i++)
+      await query(
+        "INSERT INTO messages(conversation_id,sender_id,client_id,text) VALUES(?,?,?,?)",
+        [conversation, alice.id, randomUUID(), `Page ${i}`],
+      );
+    const latest = await request(`/conversations/${conversation}/messages`, {
+      user: bob,
+    });
+    assert.equal(latest.data.messages.length, 50);
+    assert.equal(latest.data.hasMore, true);
+    const older = await request(
+      `/conversations/${conversation}/messages?before=${latest.data.messages[0].id}`,
+      { user: bob },
+    );
+    assert.equal(older.data.messages.length, 4);
+    assert.equal(older.data.hasMore, false);
+    assert.ok(older.data.messages.at(-1).id < latest.data.messages[0].id);
+  });
+  await t.test(
+    "video uploads support authorized byte-range playback",
+    async () => {
+      const sent = await request(`/conversations/${conversation}/messages`, {
+        user: alice,
+        form: form("video", video, "clip.mp4", "video/mp4"),
+      });
+      assert.equal(sent.res.status, 201, JSON.stringify(sent.data));
+      const url = base + sent.data.message.media.url;
+      const range = await fetch(url, {
+        headers: { Cookie: bob.cookie, Range: "bytes=0-99" },
+      });
+      assert.equal(range.status, 206);
+      assert.match(range.headers.get("content-type"), /video\/mp4/);
+      assert.equal((await range.arrayBuffer()).byteLength, 100);
+      assert.equal(
+        (
+          await fetch(url, {
+            headers: { Cookie: eve.cookie, Range: "bytes=0-99" },
+          })
+        ).status,
+        404,
+      );
+    },
+  );
+  await t.test(
+    "same-origin polling works without an Origin header",
+    async () => {
+      const socket = connect(base, {
+        transports: ["polling"],
+        extraHeaders: { Cookie: bob.cookie, "Sec-Fetch-Site": "same-origin" },
+        reconnection: false,
+        timeout: 3000,
+      });
+      sockets.push(socket);
+      await event(socket, "connect");
+      assert.equal(socket.connected, true);
+      socket.disconnect();
+    },
+  );
+  await t.test(
+    "logout revokes the cookie and closes its live sockets",
+    async () => {
+      const disconnected = event(aliceSocket, "disconnect");
+      assert.equal(
+        (await request("/auth/logout", { user: alice, body: {} })).res.status,
+        204,
+      );
+      await disconnected;
+      assert.equal(
+        (await request("/auth/me", { user: alice })).res.status,
+        401,
+      );
+    },
+  );
+  await t.test("expired sessions are refused", async () => {
+    await query(
+      "UPDATE sessions SET expires_at=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 DAY) WHERE user_id=?",
+      [eve.id],
+    );
+    assert.equal((await request("/auth/me", { user: eve })).res.status, 401);
+  });
+});
