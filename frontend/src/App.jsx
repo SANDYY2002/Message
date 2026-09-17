@@ -356,19 +356,28 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
     scroll = useRef(null),
     draft = useRef({ id: crypto.randomUUID(), text: "", file: null }),
     readSent = useRef(new Map()),
+    messageUpdates = useRef(new Map()),
     drafts = useRef(new Map()),
     fileInput = useRef(null),
     bottom = useRef(null),
     sendingRef = useRef(false);
   const selected = conversations.find((c) => c.id === activeId);
   active.current = activeId;
+  function latestMessage(m) {
+    const update = messageUpdates.current.get(m.id);
+    return update && (update.revision || 0) > (m.revision || 0) ? update : m;
+  }
   function applyMessageUpdate(m) {
     refreshList();
     setMessageChange((n) => n + 1);
-    if (active.current === m.conversationId)
+    if (active.current === m.conversationId) {
+      messageUpdates.current.set(m.id, latestMessage(m));
       setMessages((previous) =>
-        previous.some((p) => p.id === m.id) ? merge(previous, [m]) : previous,
+        previous.some((p) => p.id === m.id)
+          ? merge(previous, [latestMessage(m)])
+          : previous,
       );
+    }
     if (m.deletedAt) {
       setMessageAction((a) => (a?.message.id === m.id ? null : a));
       setLightbox((current) =>
@@ -397,7 +406,7 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
     try {
       const d = await api(`/conversations/${cid}/messages`);
       if (active.current !== cid || seq !== historySeq.current) return;
-      setMessages((current) => merge(current, d.messages));
+      setMessages((current) => merge(current, d.messages.map(latestMessage)));
       setHasMore(d.hasMore);
       setPeerReadId((previous) => Math.max(previous, d.peerReadId));
     } catch (e) {
@@ -436,7 +445,7 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
       refreshList();
       setMessageChange((n) => n + 1);
       if (active.current === m.conversationId) {
-        setMessages((prev) => merge(prev, [m]));
+        setMessages((prev) => merge(prev, [latestMessage(m)]));
         setTyping(false);
       }
     });
@@ -501,6 +510,7 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
     if (active.current)
       drafts.current.set(active.current, { text, file, retry: draft.current });
     const saved = drafts.current.get(cid);
+    messageUpdates.current.clear();
     active.current = cid;
     setActiveId(cid);
     setMessages([]);
@@ -523,7 +533,7 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
         `/conversations/${cid}/messages?before=${messages[0].id}`,
       );
       if (active.current === cid) {
-        setMessages((p) => merge(d.messages, p));
+        setMessages((p) => merge(d.messages.map(latestMessage), p));
         setHasMore(d.hasMore);
         requestAnimationFrame(() => {
           el.scrollTop = el.scrollHeight - height;
@@ -574,7 +584,7 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
         setProgress,
       );
       if (active.current === cid) {
-        setMessages((p) => merge(p, [d.message]));
+        setMessages((p) => merge(p, [latestMessage(d.message)]));
         setText("");
         setFile(null);
         drafts.current.delete(cid);

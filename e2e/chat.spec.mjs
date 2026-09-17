@@ -209,6 +209,48 @@ test("two people can sign up, chat, share media, reconnect, and use mobile dark 
       .locator(".message-bubble")
       .getByText("Revised hello from Alice 👋", { exact: true }),
   ).toBeVisible();
+  // A slow history response must not restore a message deleted while that history is loading.
+  await alice
+    .getByRole("textbox", { name: "Message", exact: true })
+    .fill("Race original");
+  await alice.getByRole("button", { name: "Send message" }).click();
+  await expect(
+    bob.locator(".message-bubble").getByText("Race original", { exact: true }),
+  ).toBeVisible();
+  const race = alice
+    .locator(".message-row")
+    .filter({ hasText: "Race original" });
+  const raceId = await race.getAttribute("data-message-id");
+  let release, capture;
+  const gate = new Promise((resolve) => (release = resolve));
+  const captured = new Promise((resolve) => (capture = resolve));
+  await bob.route("**/api/conversations/*/messages", async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    const body = await response.json();
+    capture();
+    await gate;
+    await route.fulfill({ response, json: body });
+  });
+  await bob.reload();
+  await bob.locator(".conversation").first().click();
+  await captured;
+  await race.getByRole("button", { name: "Delete message" }).click();
+  await alice.getByRole("button", { name: "Delete for everyone" }).click();
+  await expect(
+    bob
+      .locator(".conversation-preview")
+      .getByText("Message deleted", { exact: true }),
+  ).toBeVisible();
+  release();
+  await expect(
+    bob
+      .locator(`[data-message-id="${raceId}"]`)
+      .getByText("Message deleted", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    bob.locator(".message-bubble").getByText("Race original", { exact: true }),
+  ).toHaveCount(0);
   expect(errors).toEqual([]);
   await aliceContext.close();
   await bobContext.close();
