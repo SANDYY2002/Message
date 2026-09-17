@@ -1,7 +1,7 @@
 // Runs against a real, dedicated MySQL database. Never point this at production.
 import { before, after, test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm, readdir } from "node:fs/promises";
+import { mkdtemp, rm, readdir, readFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -16,9 +16,10 @@ process.env.COOKIE_SECURE = "false";
 process.env.MAX_UPLOAD_MB = "1";
 const dir = await mkdtemp(path.join(tmpdir(), "message-test-"));
 process.env.UPLOAD_DIR = dir;
-const { query } = await import("../src/db.js");
+const { query, pool } = await import("../src/db.js");
 let runtime, base, alice, bob, eve, conversation, message, media;
 const sockets = [];
+let legacyMessageId;
 async function request(
   route,
   {
@@ -93,12 +94,60 @@ function form(
   return data;
 }
 before(async () => {
+  // Seed the original v1 schema before upgrading; keep this test compatible with repeat runs.
+  const schema = await readFile(
+    new URL("../../database/schema.sql", import.meta.url),
+    "utf8",
+  );
+  for (const statement of schema.split(";").filter((s) => s.trim()))
+    await query(statement);
+  await query(
+    "CREATE TABLE IF NOT EXISTS schema_migrations (version INT PRIMARY KEY, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+  );
+  await query("INSERT IGNORE INTO schema_migrations(version) VALUES(1)");
+  const suffix = Date.now().toString().slice(-8);
+  const legacyA = await query(
+    "INSERT INTO users(username,display_name,password_hash) VALUES(?,?,?)",
+    [`legacy_a_${suffix}`, "Legacy A", "unused-test-hash"],
+  );
+  const legacyB = await query(
+    "INSERT INTO users(username,display_name,password_hash) VALUES(?,?,?)",
+    [`legacy_b_${suffix}`, "Legacy B", "unused-test-hash"],
+  );
+  const legacyC = await query(
+    "INSERT INTO conversations(user_low,user_high) VALUES(?,?)",
+    [legacyA.insertId, legacyB.insertId],
+  );
+  const legacyM = await query(
+    "INSERT INTO messages(conversation_id,sender_id,client_id,text) VALUES(?,?,?,?)",
+    [legacyC.insertId, legacyA.insertId, randomUUID(), "Keep this old message"],
+  );
+  legacyMessageId = legacyM.insertId;
+  const partial = await query(
+    "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='messages' AND COLUMN_NAME='edited_at'",
+  );
+  if (!partial.length)
+    await query("ALTER TABLE messages ADD COLUMN edited_at DATETIME(3) NULL");
+
   const migrated = spawnSync(process.execPath, ["src/migrate.js"], {
     cwd: new URL("../", import.meta.url),
     env: process.env,
     encoding: "utf8",
   });
   assert.equal(migrated.status, 0, migrated.stderr);
+  const again = spawnSync(process.execPath, ["src/migrate.js"], {
+    cwd: new URL("../", import.meta.url),
+    env: process.env,
+    encoding: "utf8",
+  });
+  assert.equal(again.status, 0, again.stderr);
+  const [kept] = await query("SELECT * FROM messages WHERE id=?", [
+    legacyMessageId,
+  ]);
+  assert.equal(kept.text, "Keep this old message");
+  assert.equal(kept.revision, 0);
+  assert.equal(kept.deleted_at, null);
+
   const { start } = await import("../src/server.js");
   runtime = await start(0);
   base = `http://127.0.0.1:${runtime.server.address().port}`;
@@ -109,6 +158,7 @@ before(async () => {
 after(async () => {
   sockets.forEach((s) => s.disconnect());
   if (runtime) await runtime.close();
+  else await pool.end();
   await rm(dir, { recursive: true, force: true });
 });
 test("real MySQL authentication, chat, media, sockets, and access controls", async (t) => {
@@ -345,6 +395,250 @@ test("real MySQL authentication, chat, media, sockets, and access controls", asy
       await event(socket, "connect");
       assert.equal(socket.connected, true);
       socket.disconnect();
+    },
+  );
+  await t.test(
+    "ownership and origin checks protect edits and deletion",
+    async () => {
+      const route = `/conversations/${conversation}/messages/${message.id}`;
+      for (const user of [bob, eve]) {
+        assert.equal(
+          (
+            await request(route, {
+              user,
+              method: "PATCH",
+              body: { text: "not mine", revision: 0 },
+            })
+          ).res.status,
+          404,
+        );
+        assert.equal(
+          (await request(route, { user, method: "DELETE" })).res.status,
+          404,
+        );
+      }
+      assert.equal(
+        (
+          await request(route, {
+            method: "PATCH",
+            body: { text: "anonymous", revision: 0 },
+          })
+        ).res.status,
+        401,
+      );
+      assert.equal(
+        (
+          await request(route, {
+            user: alice,
+            method: "DELETE",
+            origin: "https://evil.example",
+          })
+        ).res.status,
+        403,
+      );
+    },
+  );
+  await t.test(
+    "edits reach the recipient and reject stale versions",
+    async () => {
+      const route = `/conversations/${conversation}/messages/${message.id}`;
+      const changed = event(bobSocket, "message:updated");
+      const edit = await request(route, {
+        user: alice,
+        method: "PATCH",
+        body: { text: "Corrected hello 👋", revision: 0 },
+      });
+      assert.equal(edit.res.status, 200, JSON.stringify(edit.data));
+      assert.equal(edit.data.message.revision, 1);
+      assert.ok(edit.data.message.editedAt);
+      assert.equal((await changed).text, "Corrected hello 👋");
+      assert.equal(
+        (
+          await request(route, {
+            user: alice,
+            method: "PATCH",
+            body: { text: "stale", revision: 0 },
+          })
+        ).res.status,
+        409,
+      );
+      assert.equal(
+        (
+          await request(route, {
+            user: alice,
+            method: "PATCH",
+            body: { text: " ", revision: 1 },
+          })
+        ).res.status,
+        400,
+      );
+      const caption = await request(
+        `/conversations/${conversation}/messages/${media.id}`,
+        { user: alice, method: "PATCH", body: { text: "", revision: 0 } },
+      );
+      assert.equal(caption.res.status, 200);
+      assert.equal(caption.data.message.text, "");
+      assert.ok(caption.data.message.media);
+    },
+  );
+  await t.test(
+    "search is literal, paginated, case-insensitive, and conversation-scoped",
+    async () => {
+      for (let i = 0; i < 34; i++)
+        await query(
+          "INSERT INTO messages(conversation_id,sender_id,client_id,text) VALUES(?,?,?,?)",
+          [conversation, alice.id, randomUUID(), `TOKEN_% MixedCase ${i}`],
+        );
+      const first = await request(
+        `/conversations/${conversation}/search?q=${encodeURIComponent("token_%")}`,
+        { user: bob },
+      );
+      assert.equal(first.res.status, 200);
+      assert.equal(first.data.messages.length, 30);
+      assert.ok(first.data.nextBefore);
+      const second = await request(
+        `/conversations/${conversation}/search?q=${encodeURIComponent("token_%")}&before=${first.data.nextBefore}`,
+        { user: bob },
+      );
+      assert.equal(second.data.messages.length, 4);
+      assert.equal(second.data.nextBefore, null);
+      assert.equal(
+        new Set(
+          [...first.data.messages, ...second.data.messages].map((m) => m.id),
+        ).size,
+        34,
+      );
+      const literal = await request(
+        `/conversations/${conversation}/search?q=%25`,
+        { user: bob },
+      );
+      assert.equal(literal.data.messages.length, 30);
+      assert.equal(
+        (
+          await request(`/conversations/${conversation}/search?q=token`, {
+            user: eve,
+          })
+        ).res.status,
+        404,
+      );
+      assert.equal(
+        (
+          await request(`/conversations/${conversation}/search?q=`, {
+            user: bob,
+          })
+        ).res.status,
+        400,
+      );
+      const changed = await request(
+        `/conversations/${conversation}/search?q=corrected`,
+        { user: bob },
+      );
+      assert.equal(changed.data.messages[0].id, message.id);
+    },
+  );
+  await t.test(
+    "deletion is live, idempotent, removes unread counts, and cannot be resurrected",
+    async () => {
+      const body = {
+        text: "Remove this unique message",
+        clientId: randomUUID(),
+      };
+      const sent = await request(`/conversations/${conversation}/messages`, {
+        user: alice,
+        body,
+      });
+      const mid = sent.data.message.id,
+        route = `/conversations/${conversation}/messages/${mid}`;
+      const list = await request("/conversations", { user: bob });
+      const before = list.data.conversations.find(
+        (c) => c.id === conversation,
+      ).unread;
+      const changed = event(bobSocket, "message:updated");
+      const deleted = await request(route, { user: alice, method: "DELETE" });
+      assert.equal(deleted.res.status, 200);
+      assert.ok(deleted.data.message.deletedAt);
+      assert.equal(deleted.data.message.text, "");
+      assert.equal((await changed).id, mid);
+      const again = await request(route, { user: alice, method: "DELETE" });
+      assert.equal(again.data.message.revision, deleted.data.message.revision);
+      const retry = await request(`/conversations/${conversation}/messages`, {
+        user: alice,
+        body,
+      });
+      assert.equal(retry.data.message.id, mid);
+      assert.ok(retry.data.message.deletedAt);
+      assert.equal(
+        (
+          await request(route, {
+            user: alice,
+            method: "PATCH",
+            body: { text: "restore", revision: 1 },
+          })
+        ).res.status,
+        409,
+      );
+      const updated = await request("/conversations", { user: bob });
+      const c = updated.data.conversations.find((c) => c.id === conversation);
+      assert.equal(c.unread, before - 1);
+      assert.ok(c.lastMessage.deletedAt);
+      const search = await request(
+        `/conversations/${conversation}/search?q=Remove`,
+        { user: bob },
+      );
+      assert.equal(search.data.messages.length, 0);
+    },
+  );
+  await t.test(
+    "deleting media revokes access and retries failed disk cleanup",
+    async () => {
+      const [stored] = await query(
+        "SELECT media_path FROM messages WHERE id=?",
+        [media.id],
+      );
+      const filePath = path.join(dir, stored.media_path);
+      // Simulate a transient filesystem failure without weakening application authorization.
+      await rm(filePath);
+      await mkdir(filePath);
+      const deleted = await request(
+        `/conversations/${conversation}/messages/${media.id}`,
+        { user: alice, method: "DELETE" },
+      );
+      assert.equal(deleted.res.status, 200);
+      assert.equal(deleted.data.message.media, null);
+      assert.equal(
+        (await request(`/media/${media.id}`, { user: alice })).res.status,
+        404,
+      );
+      assert.equal(
+        (await request(`/media/${media.id}`, { user: bob })).res.status,
+        404,
+      );
+      assert.equal(
+        (
+          await query("SELECT path FROM media_deletions WHERE path=?", [
+            stored.media_path,
+          ])
+        ).length,
+        1,
+      );
+      await rm(filePath, { recursive: true });
+      const { drainMediaDeletions } = await import("../src/media-cleanup.js");
+      await drainMediaDeletions();
+      assert.equal(
+        (
+          await query("SELECT path FROM media_deletions WHERE path=?", [
+            stored.media_path,
+          ])
+        ).length,
+        0,
+      );
+      const [row] = await query(
+        "SELECT text,media_path,media_size FROM messages WHERE id=?",
+        [media.id],
+      );
+      assert.equal(row.media_path, null);
+      assert.equal(row.media_size, null);
+      assert.equal(row.text, "");
     },
   );
   await t.test(

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   credentials,
+  editInput,
   id,
   messageInput,
   publicMessage,
@@ -61,4 +62,41 @@ test("public messages never expose storage paths", () => {
   });
   assert.equal(result.media.url, "/api/media/1");
   assert.equal(JSON.stringify(result).includes("private-file-name"), false);
+});
+
+test("edit validation requires a version and bounds text", () => {
+  assert.deepEqual(editInput({ text: " hello ", revision: 2 }), {
+    text: "hello",
+    revision: 2,
+  });
+  for (const revision of [undefined, "2", -1, 1.5, NaN])
+    assert.throws(() => editInput({ text: "hello", revision }));
+  assert.throws(() => editInput({ text: "x".repeat(4001), revision: 0 }));
+});
+test("deleted messages cannot reveal stale text or attachments", () => {
+  const m = publicMessage({
+    id: 1,
+    text: "secret",
+    media_path: "stale-path",
+    deleted_at: new Date(),
+    revision: 2,
+  });
+  assert.equal(m.text, "");
+  assert.equal(m.media, null);
+  assert.equal(m.revision, 2);
+});
+test("late history cannot resurrect an edited or deleted message", async () => {
+  const { mergeMessages } = await import("../../frontend/src/messages.js");
+  const deleted = { id: 1, revision: 2, deletedAt: "now", text: "" };
+  assert.deepEqual(
+    mergeMessages([deleted], [{ id: 1, revision: 1, text: "old" }]),
+    [deleted],
+  );
+  assert.equal(
+    mergeMessages(
+      [{ id: 1, revision: 0, text: "old" }],
+      [{ id: 1, revision: 1, text: "new" }],
+    )[0].text,
+    "new",
+  );
 });

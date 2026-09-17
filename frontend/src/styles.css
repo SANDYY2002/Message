@@ -1461,3 +1461,218 @@ button:active:not(:disabled) {
     scroll-behavior: auto !important;
   }
 }
+
+/* Message management is visible by keyboard, pointer, and touch. */
+.message-row {
+  align-items: flex-end;
+  gap: 7px;
+}
+.message-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  opacity: 0.35;
+  flex-shrink: 0;
+}
+.mine .message-actions {
+  order: -1;
+}
+.message-row:hover .message-actions,
+.message-row:focus-within .message-actions {
+  opacity: 1;
+}
+.message-actions button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: var(--muted);
+  background: transparent;
+}
+.message-actions button:hover,
+.message-actions button:focus-visible {
+  background: var(--surface-soft);
+  color: var(--accent);
+}
+.deleted-message {
+  font-style: italic;
+  color: var(--muted);
+}
+.edited-label {
+  margin-right: 4px;
+}
+.message-modal {
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--text);
+  width: 480px;
+  max-width: calc(100vw - 24px);
+  max-height: 88dvh;
+  box-shadow: var(--shadow);
+}
+.message-modal::backdrop {
+  background: #0e251966;
+  backdrop-filter: blur(5px);
+}
+.modal-content {
+  padding: 24px;
+}
+.modal-content > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.modal-content h2 {
+  font-size: 24px;
+  letter-spacing: -0.7px;
+  margin-top: 8px;
+}
+.modal-explanation {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+.delete-preview {
+  margin: 18px 0;
+  padding: 12px 15px;
+  border-left: 3px solid var(--line);
+  font-size: 13px;
+  color: var(--muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 150px;
+  overflow: auto;
+}
+.edit-label {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  font-size: 12px;
+}
+.edit-label textarea {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  width: 100%;
+  padding: 12px;
+  resize: vertical;
+  font-size: 14px;
+  line-height: 1.7;
+  min-height: 130px;
+  max-height: 40dvh;
+}
+.edit-label > span {
+  text-align: right;
+  color: var(--muted);
+  font-size: 10px;
+}
+.modal-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+.secondary,
+.danger {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 12px;
+  padding: 13px 18px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.secondary {
+  background: var(--surface-soft);
+  color: var(--text);
+}
+.danger {
+  background: #ad4039;
+  color: #fff;
+}
+.danger:hover {
+  background: #8f302b;
+}
+.search-modal {
+  width: 530px;
+}
+.search-modal .search-box {
+  margin: 0 0 16px;
+}
+.search-results {
+  max-height: 52dvh;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.search-match {
+  border-bottom: 1px solid var(--line);
+  padding: 14px 2px;
+}
+.search-result-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--muted);
+}
+.search-match .message-row {
+  justify-content: flex-start;
+}
+.search-match .message-bubble {
+  max-width: 100%;
+  background: var(--surface-soft);
+}
+.search-image {
+  display: block;
+  max-width: 100%;
+  max-height: 220px;
+  border-radius: 10px;
+}
+.search-note {
+  margin-top: 15px;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: center;
+}
+@media (max-width: 1050px) {
+  .chat-search-button {
+    margin-left: auto;
+  }
+  .chat-header > .icon-button:last-child {
+    margin-left: 0;
+  }
+}
+@media (hover: none) {
+  .message-actions {
+    opacity: 1;
+  }
+}
+@media (max-width: 760px) {
+  .message-modal .modal-content {
+    padding: 20px;
+  }
+  .edit-label textarea,
+  .search-modal input {
+    font-size: 16px;
+  }
+  .message-bubble {
+    max-width: calc(100% - 38px);
+  }
+  .message-actions {
+    gap: 7px;
+  }
+  .message-actions button {
+    width: 30px;
+    height: 30px;
+  }
+  .chat-person {
+    flex: 1;
+  }
+  .chat-header .icon-button {
+    width: 33px;
+  }
+}

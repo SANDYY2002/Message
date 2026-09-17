@@ -145,6 +145,70 @@ test("two people can sign up, chat, share media, reconnect, and use mobile dark 
       .getByText("Hello from Alice 👋", { exact: true }),
   ).toBeVisible();
   await expect(alice.locator("html")).toHaveAttribute("data-theme", "dark");
+  // Message management across devices, including live search invalidation.
+  const originalId = await alice
+    .locator(".message-row")
+    .filter({ hasText: "Hello from Alice 👋" })
+    .getAttribute("data-message-id");
+  const original = alice.locator(`[data-message-id="${originalId}"]`);
+  await original
+    .getByRole("button", { name: "Edit message", exact: true })
+    .click();
+  const editor = alice.getByRole("dialog", { name: "Edit your message" });
+  await editor
+    .getByRole("textbox", { name: "Edit message text" })
+    .fill("Revised hello from Alice 👋");
+  await editor.getByRole("button", { name: "Save changes" }).click();
+  await expect(
+    bob
+      .locator(".message-bubble")
+      .getByText("Revised hello from Alice 👋", { exact: true }),
+  ).toBeVisible();
+  await expect(original.getByText("Edited", { exact: true })).toBeVisible();
+  await alice.getByRole("button", { name: "Search this conversation" }).click();
+  await alice.getByRole("textbox", { name: "Search messages" }).fill("revised");
+  await expect(alice.getByRole("dialog").locator(".search-match")).toHaveCount(
+    1,
+  );
+  await alice.screenshot({ path: "test-results/search-mobile.png" });
+  await alice.getByRole("button", { name: "Close dialog" }).click();
+  const mediaUrl = await bob
+    .getByRole("img", { name: "photo.png", exact: true })
+    .getAttribute("src");
+  await bob.getByRole("button", { name: "Search this conversation" }).click();
+  await bob
+    .getByRole("textbox", { name: "Search messages" })
+    .fill("small photo");
+  await expect(bob.getByRole("dialog").locator(".search-match")).toHaveCount(1);
+  const photo = alice
+    .locator(".message-row")
+    .filter({ hasText: "A small photo" });
+  await photo.getByRole("button", { name: "Delete message" }).click();
+  await alice.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(
+    alice.getByRole("img", { name: "photo.png", exact: true }),
+  ).toBeVisible();
+  await photo.getByRole("button", { name: "Delete message" }).click();
+  await alice
+    .getByRole("button", { name: "Delete for everyone", exact: true })
+    .click();
+  await expect(
+    bob.getByRole("dialog").getByText("No matching messages.", { exact: true }),
+  ).toBeVisible();
+  await bob.getByRole("button", { name: "Close dialog" }).click();
+  await expect(bob.locator(".deleted-message")).toHaveCount(1);
+  await expect(alice.locator(".deleted-message")).toHaveCount(1);
+  expect(
+    (await bobContext.request.get("http://localhost:5173" + mediaUrl)).status(),
+  ).toBe(404);
+  await alice.reload();
+  await alice.locator(".conversation").first().click();
+  await expect(alice.locator(".deleted-message")).toHaveCount(1);
+  await expect(
+    alice
+      .locator(".message-bubble")
+      .getByText("Revised hello from Alice 👋", { exact: true }),
+  ).toBeVisible();
   expect(errors).toEqual([]);
   await aliceContext.close();
   await bobContext.close();

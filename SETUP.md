@@ -89,7 +89,7 @@ Linux/macOS:
 DB_NAME=message_test DB_USER=message_test DB_PASSWORD=choose-test-password npm run test:integration
 ```
 
-Tests apply the schema automatically and cover real HTTP registration/login, Socket.IO delivery, conversation authorization, cookie flags, CSRF/origin rejection, read receipts, pagination, file validation, rejected-upload cleanup, private media, retry deduplication, logout, and expiry. GitHub Actions runs these checks with MySQL 8.4 on each deployment-branch push.
+Tests apply the schema automatically, verify upgrading existing history from version 1 (including a partially applied version 2), and cover real HTTP registration/login, Socket.IO delivery, conversation authorization, cookie flags, CSRF/origin rejection, read receipts, pagination, file validation, rejected-upload cleanup, private media, retry deduplication, logout, expiry, edit ownership/conflicts, deletion, literal search, and failed media-cleanup retries. GitHub Actions runs these checks with MySQL 8.4 on each deployment-branch push.
 
 ### Browser verification
 
@@ -100,7 +100,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-The browser test starts the API and frontend, registers two accounts, exchanges text/images/video, checks read receipts, verifies history after refresh, and checks mobile dark mode. Screenshots and failure traces go to `test-results/`; the workflow uploads them as the `browser-verification` artifact. These are synthetic test accounts, not live user conversations.
+The browser test starts the API and frontend, registers two accounts, exchanges text/images/video, checks read receipts, verifies history after refresh, and checks mobile dark mode, edits a message, searches saved text, and deletes an attachment while the other participant is searching. Screenshots and failure traces go to `test-results/`; the workflow uploads them as the `browser-verification` artifact. These are synthetic test accounts, not live user conversations.
 
 ## 4. Ubuntu production deployment
 
@@ -208,9 +208,9 @@ Visit the HTTPS site in two browser profiles. Confirm login, real-time delivery,
 
 ## Updates and backups
 
-Before updating, back up MySQL and `/srv/message-data/uploads` together. Keep backups private. Then pull `deployment`, run `npm ci`, migrate, build, and restart the service. Sessions are stored in MySQL and remain valid through a restart.
+Before updating, back up MySQL and `/srv/message-data/uploads` together. Keep backups private. Then pull `deployment`, run `npm ci`, migrate, build, and restart the service. Sessions are stored in MySQL and remain valid through a restart. Version 2 adds message edit/deletion metadata and a durable media deletion queue; run the migration before restarting the upgraded server. Existing history is preserved.
 
-A completed upload that is interrupted by a process crash before its database commit may leave an orphan file. Compare upload filenames against `messages.media_path` before removing old unreferenced files; never delete files for an active upload. Normal rejected uploads are cleaned up automatically. Database migration 1 uses idempotent DDL because MySQL DDL does not roll back atomically.
+A completed upload that is interrupted by a process crash before its database commit may leave an orphan file. Compare upload filenames against `messages.media_path` before removing old unreferenced files; never delete files for an active upload. Normal rejected uploads are cleaned up automatically. Media removed through the message Delete control is placed in the `media_deletions` queue inside the same database transaction; failed disk removal is retried every minute. Monitor queue growth and filesystem permissions if deleted files cannot be removed. Database migration 1 uses idempotent DDL because MySQL DDL does not roll back atomically.
 
 ## Troubleshooting
 

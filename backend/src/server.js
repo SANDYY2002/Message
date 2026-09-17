@@ -5,8 +5,17 @@ import { config } from "./config.js";
 import { pool, query } from "./db.js";
 import { createApp } from "./app.js";
 import { setupRealtime } from "./realtime.js";
+import { LATEST_SCHEMA_VERSION } from "./migrate.js";
+import { startMediaCleanup } from "./media-cleanup.js";
 export async function start(port = config.port) {
-  await query("SELECT version FROM schema_migrations WHERE version=1");
+  const rows = await query(
+    "SELECT version FROM schema_migrations WHERE version=?",
+    [LATEST_SCHEMA_VERSION],
+  );
+  if (!rows.length)
+    throw new Error(
+      "Database upgrade required. Run npm run db:migrate before starting Message.",
+    );
   const io = new Server({
     maxHttpBufferSize: 16384,
     allowRequest: (req, cb) =>
@@ -21,12 +30,14 @@ export async function start(port = config.port) {
   const server = createServer(await createApp(io));
   io.attach(server);
   const stopCleanup = setupRealtime(io);
+  const stopMediaCleanup = startMediaCleanup();
   await new Promise((resolve) => server.listen(port, "0.0.0.0", resolve));
   return {
     server,
     io,
     close: async () => {
       stopCleanup();
+      await stopMediaCleanup();
       await new Promise((resolve) => io.close(resolve));
       await pool.end();
     },

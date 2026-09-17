@@ -19,6 +19,7 @@ import {
 } from "./validation.js";
 import { member, emitConversation } from "./chat.js";
 
+import { mountMessageManagement } from "./message-management.js";
 export async function createApp(io) {
   await mkdir(config.uploadDir, { recursive: true });
   const app = express();
@@ -103,6 +104,7 @@ export async function createApp(io) {
     clearSession(res);
     res.sendStatus(204);
   });
+  mountMessageManagement(app, io, limiter);
   app.get("/api/users", async (req, res) => {
     const search = String(req.query.q || "")
       .trim()
@@ -119,10 +121,11 @@ export async function createApp(io) {
     const uid = req.auth.user.id;
     const rows = await query(
       `SELECT c.*,u.id AS peer_id,u.username,u.display_name,
-   (SELECT COUNT(*) FROM messages m WHERE m.conversation_id=c.id AND m.sender_id<>? AND m.id>IF(c.user_low=?,c.low_read_id,c.high_read_id)) AS unread,
+   (SELECT COUNT(*) FROM messages m WHERE m.conversation_id=c.id AND m.sender_id<>? AND m.deleted_at IS NULL AND m.id>IF(c.user_low=?,c.low_read_id,c.high_read_id)) AS unread,
    (SELECT m.id FROM messages m WHERE m.conversation_id=c.id ORDER BY m.id DESC LIMIT 1) AS last_id,
    (SELECT m.text FROM messages m WHERE m.conversation_id=c.id ORDER BY m.id DESC LIMIT 1) AS last_text,
-   (SELECT m.media_mime FROM messages m WHERE m.conversation_id=c.id ORDER BY m.id DESC LIMIT 1) AS last_mime
+   (SELECT m.media_mime FROM messages m WHERE m.conversation_id=c.id ORDER BY m.id DESC LIMIT 1) AS last_mime,
+   (SELECT m.deleted_at FROM messages m WHERE m.conversation_id=c.id ORDER BY m.id DESC LIMIT 1) AS last_deleted
    FROM conversations c JOIN users u ON u.id=IF(c.user_low=?,c.user_high,c.user_low)
    WHERE c.user_low=? OR c.user_high=? ORDER BY c.updated_at DESC,c.id DESC LIMIT 200`,
       [uid, uid, uid, uid, uid],
@@ -138,7 +141,12 @@ export async function createApp(io) {
         unread: Number(c.unread),
         peerReadId: uid === c.user_low ? c.high_read_id : c.low_read_id,
         lastMessage: c.last_id
-          ? { id: c.last_id, text: c.last_text, mediaMime: c.last_mime }
+          ? {
+              id: c.last_id,
+              text: c.last_text,
+              mediaMime: c.last_mime,
+              deletedAt: c.last_deleted,
+            }
           : null,
         updatedAt: c.updated_at,
       })),
@@ -329,7 +337,8 @@ export async function createApp(io) {
     const [m] = await query("SELECT * FROM messages WHERE id=?", [
       id(req.params.id),
     ]);
-    if (!m?.media_path) throw new HttpError(404, "Media not found.");
+    if (!m?.media_path || m.deleted_at)
+      throw new HttpError(404, "Media not found.");
     await member(m.conversation_id, req.auth.user.id);
     res.type(m.media_mime);
     res.setHeader("Content-Disposition", "inline");

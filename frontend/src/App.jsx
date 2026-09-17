@@ -3,8 +3,6 @@ import { io } from "socket.io-client";
 import {
   ArrowLeft,
   ArrowRight,
-  Check,
-  CheckCheck,
   Image,
   LoaderCircle,
   LogOut,
@@ -21,6 +19,12 @@ import {
   X,
 } from "lucide-react";
 import { api, post, uploadMessage } from "./api";
+import { mergeMessages as merge } from "./messages";
+import {
+  MessageBubble,
+  MessageAction,
+  MessageSearch,
+} from "./components/MessageTools";
 const formatTime = (d) =>
   new Date(d).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 const day = (d) =>
@@ -29,10 +33,6 @@ const day = (d) =>
     day: "numeric",
     year: "numeric",
   });
-const merge = (current, incoming) =>
-  [...new Map([...current, ...incoming].map((m) => [m.id, m])).values()].sort(
-    (a, b) => a.id - b.id,
-  );
 const initial = (u) => (u.displayName || u.username).slice(0, 1).toUpperCase();
 const shade = (u) => ["mint", "amber", "purple", "blue"][u.id % 4];
 function Avatar({ user, online = false, large = false }) {
@@ -339,7 +339,10 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
     [error, setError] = useState(""),
     [search, setSearch] = useState(""),
     [newChat, setNewChat] = useState(false),
-    [lightbox, setLightbox] = useState(null);
+    [lightbox, setLightbox] = useState(null),
+    [messageAction, setMessageAction] = useState(null),
+    [searchOpen, setSearchOpen] = useState(false),
+    [messageChange, setMessageChange] = useState(0);
   const [text, setText] = useState(""),
     [file, setFile] = useState(null),
     [sending, setSending] = useState(false),
@@ -359,6 +362,20 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
     sendingRef = useRef(false);
   const selected = conversations.find((c) => c.id === activeId);
   active.current = activeId;
+  function applyMessageUpdate(m) {
+    refreshList();
+    setMessageChange((n) => n + 1);
+    if (active.current === m.conversationId)
+      setMessages((previous) =>
+        previous.some((p) => p.id === m.id) ? merge(previous, [m]) : previous,
+      );
+    if (m.deletedAt) {
+      setMessageAction((a) => (a?.message.id === m.id ? null : a));
+      setLightbox((current) =>
+        current?.url === `/api/media/${m.id}` ? null : current,
+      );
+    }
+  }
   async function refreshList() {
     const seq = ++listSeq.current;
     try {
@@ -396,6 +413,7 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
     socket.current = s;
     s.on("connect", () => {
       setConnected(true);
+      setMessageChange((n) => n + 1);
       refreshList();
       if (active.current) loadHistory(active.current);
     });
@@ -413,8 +431,10 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
       }),
     );
     s.on("conversation:changed", refreshList);
+    s.on("message:updated", applyMessageUpdate);
     s.on("message:new", (m) => {
       refreshList();
+      setMessageChange((n) => n + 1);
       if (active.current === m.conversationId) {
         setMessages((prev) => merge(prev, [m]));
         setTyping(false);
@@ -439,6 +459,8 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
   }, []);
   useEffect(() => {
     setTyping(false);
+    setSearchOpen(false);
+    setMessageAction(null);
     setPeerReadId(0);
     setError("");
     if (activeId) loadHistory(activeId);
@@ -669,12 +691,14 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
                   </div>
                   <div className="conversation-preview">
                     <span>
-                      {c.lastMessage?.text ||
-                        (c.lastMessage?.mediaMime?.startsWith("image/")
-                          ? "Photo"
-                          : c.lastMessage?.mediaMime
-                            ? "Video"
-                            : "Say hello 👋")}
+                      {c.lastMessage?.deletedAt
+                        ? "Message deleted"
+                        : c.lastMessage?.text ||
+                          (c.lastMessage?.mediaMime?.startsWith("image/")
+                            ? "Photo"
+                            : c.lastMessage?.mediaMime
+                              ? "Video"
+                              : "Say hello 👋")}
                     </span>
                     {c.unread > 0 && <b>{c.unread > 99 ? "99+" : c.unread}</b>}
                   </div>
@@ -756,6 +780,14 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
                 <ShieldCheck size={15} />
                 Private conversation
               </span>
+              <button
+                className="icon-button chat-search-button"
+                aria-label="Search this conversation"
+                title="Search messages"
+                onClick={() => setSearchOpen(true)}
+              >
+                <Search size={19} />
+              </button>
               <ThemeButton theme={theme} setTheme={setTheme} />
             </header>
             <div className="message-area" ref={scroll}>
@@ -791,58 +823,27 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
                           <span>{day(m.createdAt)}</span>
                         </div>
                       )}
-                      <div
-                        className={`message-row ${m.senderId === user.id ? "mine" : "theirs"}`}
-                      >
-                        <div className="message-bubble">
-                          {m.media &&
-                            (m.media.mime.startsWith("image/") ? (
-                              <button
-                                className="image-message"
-                                onClick={() => setLightbox(m.media)}
-                                aria-label={`View ${m.media.name}`}
-                              >
-                                <img
-                                  src={m.media.url}
-                                  alt={m.media.name}
-                                  loading="lazy"
-                                  onLoad={() => {
-                                    const el = scroll.current;
-                                    if (
-                                      el &&
-                                      el.scrollHeight -
-                                        el.scrollTop -
-                                        el.clientHeight <
-                                        400
-                                    )
-                                      bottom.current?.scrollIntoView();
-                                  }}
-                                />
-                              </button>
-                            ) : (
-                              <video
-                                controls
-                                preload="metadata"
-                                src={m.media.url}
-                                aria-label={m.media.name}
-                              />
-                            ))}
-                          {m.text && <p>{m.text}</p>}
-                          <div className="message-meta">
-                            <time>{formatTime(m.createdAt)}</time>
-                            {m.senderId === user.id &&
-                              (peerReadId >= m.id ? (
-                                <CheckCheck
-                                  size={15}
-                                  aria-label="Read"
-                                  className="read-receipt"
-                                />
-                              ) : (
-                                <Check size={14} aria-label="Sent" />
-                              ))}
-                          </div>
-                        </div>
-                      </div>
+                      <MessageBubble
+                        message={m}
+                        mine={m.senderId === user.id}
+                        readId={peerReadId}
+                        onPreview={setLightbox}
+                        onImageLoad={() => {
+                          const el = scroll.current;
+                          if (
+                            el &&
+                            el.scrollHeight - el.scrollTop - el.clientHeight <
+                              400
+                          )
+                            bottom.current?.scrollIntoView();
+                        }}
+                        onEdit={(message) =>
+                          setMessageAction({ kind: "edit", message })
+                        }
+                        onDelete={(message) =>
+                          setMessageAction({ kind: "delete", message })
+                        }
+                      />
                     </div>
                   ))}
                   {typing && (
@@ -1001,6 +1002,22 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
           </div>
         )}
       </section>
+      {messageAction && (
+        <MessageAction
+          key={`${messageAction.kind}:${messageAction.message.id}`}
+          action={messageAction}
+          onClose={() => setMessageAction(null)}
+          onUpdated={applyMessageUpdate}
+        />
+      )}
+      {searchOpen && selected && (
+        <MessageSearch
+          conversation={selected}
+          userId={user.id}
+          changeKey={messageChange}
+          onClose={() => setSearchOpen(false)}
+        />
+      )}
       {newChat && (
         <UserPicker
           close={() => setNewChat(false)}

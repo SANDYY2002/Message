@@ -45,21 +45,38 @@ export function messageInput(body) {
     throw new HttpError(400, "A valid message retry identifier is required.");
   return { text, clientId: body.clientId.toLowerCase() };
 }
+export function editInput(body) {
+  if (!body || typeof body.text !== "string")
+    throw new HttpError(400, "Message text is required.");
+  if (body.text.trim().length > 4000)
+    throw new HttpError(400, "Message must be at most 4,000 characters.");
+  if (
+    !Number.isInteger(body.revision) ||
+    body.revision < 0 ||
+    body.revision > 4294967295
+  )
+    throw new HttpError(400, "A valid message version is required.");
+  return { text: body.text.trim(), revision: body.revision };
+}
 export function publicMessage(m) {
   return {
     id: m.id,
     conversationId: m.conversation_id,
     senderId: m.sender_id,
     clientId: m.client_id,
-    text: m.text,
+    text: m.deleted_at ? "" : m.text,
+    editedAt: m.edited_at || null,
+    deletedAt: m.deleted_at || null,
+    revision: m.revision || 0,
     createdAt: m.created_at,
-    media: m.media_path
-      ? {
-          url: `/api/media/${m.id}`,
-          name: m.media_name,
-          mime: m.media_mime,
-          size: m.media_size,
-        }
-      : null,
+    media:
+      !m.deleted_at && m.media_path
+        ? {
+            url: `/api/media/${m.id}`,
+            name: m.media_name,
+            mime: m.media_mime,
+            size: m.media_size,
+          }
+        : null,
   };
 }

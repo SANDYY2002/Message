@@ -7,6 +7,8 @@ A private, real-time messaging app for text, photos, and videos. Built with **Re
 - Username/password registration and login; bcrypt password hashing; revocable HttpOnly cookie sessions.
 - User search and one-to-one conversations, with a single conversation per pair.
 - Persistent history, cursor pagination, unread counts, read receipts, online status, and typing indicators.
+- Edit your text/captions and delete your messages for both participants, with live updates and stale-edit protection.
+- Search saved text and captions within a conversation, including older messages.
 - JPG, PNG, WebP, GIF, MP4, and WebM attachments with captions, previews, upload progress, and video playback.
 - Server-side file signature checks, upload limits, storage quotas, and participant-only media access.
 - Responsive layout with device-aware light/dark mode and locally bundled fonts.
@@ -54,8 +56,25 @@ database/schema.sql Initial versioned MySQL schema
 
 ## Current scope
 
-This version provides one-to-one messaging. Group chats, calls, password recovery, message editing/deletion, blocking, and push notifications are not implemented. There is no email requirement or seeded account; register your own users. Online status is visible to signed-in users, and the user directory is searchable by signed-in users.
+This version provides one-to-one messaging. Group chats, calls, password recovery, blocking, and push notifications are not implemented. There is no email requirement or seeded account; register your own users. Online status is visible to signed-in users, and the user directory is searchable by signed-in users.
 
 Messages are protected by application authorization and HTTPS in production; this is **not end-to-end encryption**. A deployment administrator with database/storage access can access stored content. Uploaded media stays on the application server, with a default 25 MB per-file limit and 1 GB allowance per sender. MP4/WebM playback also depends on the browser supporting the video's codecs.
 
 Deploy as **one Node process** with persistent local media storage. Multi-process scaling requires shared Socket.IO presence, a shared rate limiter, and shared/object storage. The inbox currently shows the 200 most recently active conversations; user search returns up to 30 results. Back up the MySQL database and uploads directory together. No server has been provisioned by committing this project.
+
+## Updating an existing installation
+
+This release upgrades the schema to version 2. Back up the database and media directory, then run:
+
+```bash
+git pull origin deployment
+npm ci
+npm run db:migrate
+npm run build
+```
+
+Restart your Node service afterward. The migration preserves accounts, conversations, and history, and safely resumes a partially applied upgrade. The server requires the latest migration before startup.
+
+Editing is limited to a message's sender and changes text or the attachment caption. A deleted message becomes a visible placeholder; its text and attachment metadata are removed from the active database, and the media endpoint immediately stops serving the attachment. Disk cleanup is queued durably and retried each minute. Recipients may already have seen or downloaded content, and existing backups can still contain it. Retry identifiers are retained to prevent a network retry from restoring deleted messages.
+
+Conversation search uses literal, case-insensitive matching over non-deleted text and captions, 30 results per page. Search does not mark matched messages as read. It does not search inside images or video content.
