@@ -22,7 +22,7 @@ export const config = {
   production,
   origin,
   secure,
-  port: integer("PORT", 3000, 1, 65535),
+  port: integer("PORT", 3005, 1, 65535),
   trustProxy: integer("TRUST_PROXY", 0, 0, 5),
   uploadDir: path.resolve(backendDir, process.env.UPLOAD_DIR || "uploads"),
   maxBytes: integer("MAX_UPLOAD_MB", 25, 1, 200) * 1024 * 1024,

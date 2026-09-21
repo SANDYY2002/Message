@@ -47,7 +47,7 @@ database/schema.sql Initial versioned MySQL schema
 
 | Command                    | Purpose                                                                         |
 | -------------------------- | ------------------------------------------------------------------------------- |
-| `npm run dev`              | API on 3000 and Vite on 5173                                                    |
+| `npm run dev`              | API on 3005 and Vite on 5173                                                    |
 | `npm run db:migrate`       | Apply the schema; safe to repeat                                                |
 | `npm run build`            | Build frontend into frontend/dist                                               |
 | `npm start`                | Start API; production mode also serves the built frontend                       |

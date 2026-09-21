@@ -29,7 +29,7 @@ Update `backend/.env`:
 
 ```dotenv
 NODE_ENV=development
-PORT=3000
+PORT=3005
 PUBLIC_ORIGIN=http://localhost:5173
 DB_HOST=127.0.0.1
 DB_PORT=3306
@@ -116,7 +116,7 @@ Set the database credentials and these production values:
 
 ```dotenv
 NODE_ENV=production
-PORT=3000
+PORT=3005
 PUBLIC_ORIGIN=https://chat.example.com
 COOKIE_SECURE=true
 TRUST_PROXY=1
@@ -181,7 +181,7 @@ server {
     client_max_body_size 26m;
 
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:3005;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -195,7 +195,7 @@ server {
 }
 ```
 
-Do not add an Nginx alias for uploaded files: all media must pass through Express authorization. Only ports 80/443 should be publicly reachable; keep 3000 and 3306 private. The TRUST_PROXY=1 configuration above assumes exactly one trusted Nginx proxy. Adjust both proxy trust and forwarded headers if your architecture differs.
+Do not add an Nginx alias for uploaded files: all media must pass through Express authorization. Only ports 80/443 should be publicly reachable; keep 3005 and 3306 private. The TRUST_PROXY=1 configuration above assumes exactly one trusted Nginx proxy. Adjust both proxy trust and forwarded headers if your architecture differs.
 
 Check and reload Nginx:
 
@@ -231,6 +231,9 @@ Before updating, back up MySQL and `/srv/message-data/uploads` together. Keep ba
 A completed upload that is interrupted by a process crash before its database commit may leave an orphan file. Compare upload filenames against `messages.media_path` before removing old unreferenced files; never delete files for an active upload. Normal rejected uploads are cleaned up automatically. Media removed through the message Delete control is placed in the `media_deletions` queue inside the same database transaction; failed disk removal is retried every minute. Monitor queue growth and filesystem permissions if deleted files cannot be removed. Database migration 1 uses idempotent DDL because MySQL DDL does not roll back atomically.
 
 ## Troubleshooting
+
+- **Existing checkout after the port update:** Git does not update your private `backend/.env`. Change its `PORT` to `3005`, keep `PUBLIC_ORIGIN=http://localhost:5173` for local development, and restart `npm run dev`.
+- **EACCES / EADDRINUSE when starting the API:** the operating system refused the selected port or it is already in use. Choose an available port in `backend/.env` and update both proxy targets in `frontend/vite.config.js` to match. The default is now `3005`.
 
 - **Database access denied:** check DB_USER/DB_PASSWORD and the MySQL account host grants.
 - **Origin not allowed / reconnecting:** PUBLIC_ORIGIN must exactly match the page's scheme, host, and port, with no trailing slash. Restart the API after changes.
