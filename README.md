@@ -1,6 +1,6 @@
 # Message
 
-A private, real-time messaging app for text, photos, and videos. Built with **React, Node.js, Express, Socket.IO, and MySQL**. Development lives on the `deployment` branch.
+A private, real-time messaging app for text, photos, and videos. Built with **React, Node.js, Express, Socket.IO, and MySQL**. The current release lives on `main`; `deployment` remains available for development.
 
 ## Included
 
@@ -22,7 +22,7 @@ See [SETUP.md](SETUP.md) for Windows development and HTTPS deployment instructio
 Requires Node.js **22.12+** (Node 24 recommended) and **MySQL 8.0+**.
 
 ```bash
-git clone --branch deployment https://github.com/SANDYY2002/Message.git
+git clone --branch main https://github.com/SANDYY2002/Message.git
 cd Message
 npm ci
 cp backend/.env.example backend/.env
@@ -67,7 +67,7 @@ Deploy as **one Node process** with persistent local media storage. Multi-proces
 This release upgrades the schema to version 2. Back up the database and media directory, then run:
 
 ```bash
-git pull origin deployment
+git pull origin main
 npm ci
 npm run db:migrate
 npm run build

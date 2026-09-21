@@ -1,11 +1,11 @@
 # Setup and deployment
 
-## 1. Get the deployment branch
+## 1. Get the main branch
 
 Install Node.js 24 LTS, Git, and MySQL 8.0 or later. Then run:
 
 ```powershell
-git clone --branch deployment https://github.com/SANDYY2002/Message.git
+git clone --branch main https://github.com/SANDYY2002/Message.git
 cd Message
 npm ci
 Copy-Item backend/.env.example backend/.env
@@ -89,7 +89,7 @@ Linux/macOS:
 DB_NAME=message_test DB_USER=message_test DB_PASSWORD=choose-test-password npm run test:integration
 ```
 
-Tests apply the schema automatically, verify upgrading existing history from version 1 (including a partially applied version 2), and cover real HTTP registration/login, Socket.IO delivery, conversation authorization, cookie flags, CSRF/origin rejection, read receipts, pagination, file validation, rejected-upload cleanup, private media, retry deduplication, logout, expiry, edit ownership/conflicts, deletion, literal search, and failed media-cleanup retries. GitHub Actions runs these checks with MySQL 8.4 on each deployment-branch push.
+Tests apply the schema automatically, verify upgrading existing history from version 1 (including a partially applied version 2), and cover real HTTP registration/login, Socket.IO delivery, conversation authorization, cookie flags, CSRF/origin rejection, read receipts, pagination, file validation, rejected-upload cleanup, private media, retry deduplication, logout, expiry, edit ownership/conflicts, deletion, literal search, and failed media-cleanup retries. GitHub Actions runs these checks with MySQL 8.4 on each push to `main` or `deployment`.
 
 ### Browser verification
 
@@ -206,9 +206,27 @@ sudo systemctl reload nginx
 
 Visit the HTTPS site in two browser profiles. Confirm login, real-time delivery, image uploads, video playback, and refresh persistence. `/api/health` verifies database connectivity.
 
+## Vercel frontend deployment
+
+The root `vercel.json` specifies the Vite preset, `npm ci`, `npm run build`, and output directory `frontend/dist`.
+
+1. Import this repository and select `main` as the production branch.
+2. Set **Root Directory** to the repository root (leave it empty), not `frontend`. The configuration paths are relative to this root.
+3. Use Node.js 24 and the build settings supplied by `vercel.json`.
+4. Create a new deployment from the latest `main` commit. Redeploying an old deployment reuses its old commit; disabling the cache does not change that commit.
+5. Confirm the build runs Vite and produces `frontend/dist/index.html`.
+
+If the log shows initial commit `2d3c63f`, the selected deployment still uses the old README-only source. If it complains about a missing `public` directory, verify the deployment includes the root `vercel.json` and uses the repository root.
+
+This configuration publishes only the frontend. It does not start `backend/src/server.js`, provision MySQL, run migrations, or provide persistent uploads. The frontend currently calls same-origin `/api` and `/socket.io` routes; Vite's development proxy does not run in production. Login and chat require those routes to reach a configured backend. Do not put database credentials in frontend environment variables.
+
+For the complete application with the current architecture, follow the Ubuntu production instructions above. Hosting the frontend separately requires API/realtime routing to that backend; migrating the backend to Vercel also requires adapting its runtime, shared realtime state, and persistent media storage. A successful frontend build alone is not a working full-app deployment.
+
+See [Vercel project configuration](https://vercel.com/docs/project-configuration) for the configuration file reference.
+
 ## Updates and backups
 
-Before updating, back up MySQL and `/srv/message-data/uploads` together. Keep backups private. Then pull `deployment`, run `npm ci`, migrate, build, and restart the service. Sessions are stored in MySQL and remain valid through a restart. Version 2 adds message edit/deletion metadata and a durable media deletion queue; run the migration before restarting the upgraded server. Existing history is preserved.
+Before updating, back up MySQL and `/srv/message-data/uploads` together. Keep backups private. Then pull `main`, run `npm ci`, migrate, build, and restart the service. Sessions are stored in MySQL and remain valid through a restart. Version 2 adds message edit/deletion metadata and a durable media deletion queue; run the migration before restarting the upgraded server. Existing history is preserved.
 
 A completed upload that is interrupted by a process crash before its database commit may leave an orphan file. Compare upload filenames against `messages.media_path` before removing old unreferenced files; never delete files for an active upload. Normal rejected uploads are cleaned up automatically. Media removed through the message Delete control is placed in the `media_deletions` queue inside the same database transaction; failed disk removal is retried every minute. Monitor queue growth and filesystem permissions if deleted files cannot be removed. Database migration 1 uses idempotent DDL because MySQL DDL does not roll back atomically.
 

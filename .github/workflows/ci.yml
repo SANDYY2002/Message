@@ -1,7 +1,7 @@
 name: Verify Message
 on:
   push:
-    branches: [deployment]
+    branches: [deployment, main]
   pull_request:
     branches: [deployment, main]
 permissions:
