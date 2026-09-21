@@ -7,7 +7,7 @@
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "db:migrate": "node src/migrate.js",
-    "test": "node --test test/validation.test.js",
+    "test": "node --test test/validation.test.js test/calls.test.js",
     "test:integration": "node --test test/integration.test.js"
   },
   "dependencies": {
