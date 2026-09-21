@@ -17,11 +17,11 @@ export default defineConfig({
   webServer: [
     {
       command: "npm start -w backend",
-      url: "http://127.0.0.1:3005/api/health",
+      url: "http://127.0.0.1:4000/api/health",
       reuseExistingServer: !process.env.CI,
       env: {
         NODE_ENV: "test",
-        PORT: "3005",
+        PORT: "4000",
         PUBLIC_ORIGIN: "http://localhost:5173",
         COOKIE_SECURE: "false",
       },

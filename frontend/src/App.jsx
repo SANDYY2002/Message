@@ -1,3 +1,4 @@
+import Calls from "./components/Calls";
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import {
@@ -325,6 +326,7 @@ function Auth({ onLogin, theme, setTheme }) {
   );
 }
 function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
+  const [callSocket, setCallSocket] = useState(null);
   const [conversations, setConversations] = useState([]),
     [listLoading, setListLoading] = useState(true),
     [activeId, setActiveId] = useState(null),
@@ -420,6 +422,7 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
     refreshList();
     const s = io({ autoConnect: true });
     socket.current = s;
+    setCallSocket(s);
     s.on("connect", () => {
       setConnected(true);
       setMessageChange((n) => n + 1);
@@ -758,6 +761,12 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
         </footer>
       </aside>
       <section className="chat-main">
+        <Calls
+          socket={callSocket}
+          selected={selected}
+          user={user}
+          connected={connected}
+        />
         {selected ? (
           <>
             <header className="chat-header">

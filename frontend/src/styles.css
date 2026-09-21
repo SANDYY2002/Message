@@ -1676,3 +1676,126 @@ button:active:not(:disabled) {
     width: 33px;
   }
 }
+
+/* Calling remains available while switching conversations. */
+.call-toolbar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 18px;
+  border-bottom: 1px solid var(--border, #7774);
+  flex-wrap: wrap;
+}
+.call-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.call-dialog {
+  border: 1px solid #ffffff26;
+  border-radius: 24px;
+  background: #162820;
+  color: #edf6f0;
+  width: min(620px, calc(100vw - 32px));
+  max-height: 90dvh;
+  padding: 28px;
+  box-shadow: 0 24px 80px #0008;
+  text-align: center;
+}
+.call-dialog::backdrop {
+  background: #06100be0;
+}
+.call-dialog h2 {
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+.call-dialog p {
+  margin: 10px 0;
+}
+.call-eyebrow {
+  color: #a8d9bb;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+.call-videos {
+  position: relative;
+  margin: 18px 0;
+  background: #09140e;
+  border-radius: 16px;
+  overflow: hidden;
+  aspect-ratio: 4/3;
+}
+.call-videos video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.call-self {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: 28%;
+  aspect-ratio: 3/4;
+  background: #203b2b;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.call-self video {
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+.call-controls {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  align-items: center;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+.call-dialog .icon-button {
+  color: #edf6f0;
+}
+.call-hangup {
+  background: #ad303c;
+  color: white;
+  border: 0;
+  border-radius: 24px;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.call-history-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.call-history ul {
+  list-style: none;
+  padding: 0;
+  text-align: left;
+}
+.call-history li {
+  display: flex;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid #ffffff20;
+}
+.call-history li p {
+  font-size: 13px;
+  color: #bfd0c5;
+}
+.call-dialog audio {
+  max-width: 100%;
+}
+@media (max-width: 600px) {
+  .call-dialog {
+    padding: 20px;
+  }
+  .call-toolbar {
+    padding: 4px 12px;
+  }
+}

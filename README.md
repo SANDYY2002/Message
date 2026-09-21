@@ -47,7 +47,7 @@ database/schema.sql Initial versioned MySQL schema
 
 | Command                    | Purpose                                                                         |
 | -------------------------- | ------------------------------------------------------------------------------- |
-| `npm run dev`              | API on 3005 and Vite on 5173                                                    |
+| `npm run dev`              | API on 4000 and Vite on 5173                                                    |
 | `npm run db:migrate`       | Apply the schema; safe to repeat                                                |
 | `npm run build`            | Build frontend into frontend/dist                                               |
 | `npm start`                | Start API; production mode also serves the built frontend                       |
@@ -78,3 +78,7 @@ Restart your Node service afterward. The migration preserves accounts, conversat
 Editing is limited to a message's sender and changes text or the attachment caption. A deleted message becomes a visible placeholder; its text and attachment metadata are removed from the active database, and the media endpoint immediately stops serving the attachment. Disk cleanup is queued durably and retried each minute. Recipients may already have seen or downloaded content, and existing backups can still contain it. Retry identifiers are retained to prevent a network retry from restoring deleted messages.
 
 Conversation search uses literal, case-insensitive matching over non-deleted text and captions, 30 results per page. Search does not mark matched messages as read. It does not search inside images or video content.
+
+### Calling
+
+One-to-one voice/video calls use WebRTC with authenticated Socket.IO signaling. Calls include accept/decline, microphone mute, camera toggle, hangup, and persisted call history. Run `npm run db:migrate` after updating. See [calling setup](SETUP.md#voice-and-video-calls) for HTTPS, permissions, and TURN configuration. The default API port is `4000`; existing private `.env` files must be updated manually.

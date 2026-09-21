@@ -16,6 +16,9 @@ export async function start(port = config.port) {
     throw new Error(
       "Database upgrade required. Run npm run db:migrate before starting Message.",
     );
+  await query(
+    "UPDATE calls SET status='disconnected',ended_at=UTC_TIMESTAMP(3) WHERE ended_at IS NULL",
+  );
   const io = new Server({
     maxHttpBufferSize: 16384,
     allowRequest: (req, cb) =>
@@ -36,7 +39,7 @@ export async function start(port = config.port) {
     server,
     io,
     close: async () => {
-      stopCleanup();
+      await stopCleanup();
       await stopMediaCleanup();
       await new Promise((resolve) => io.close(resolve));
       await pool.end();

@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { pool } from "./db.js";
 import { fileURLToPath } from "node:url";
-export const LATEST_SCHEMA_VERSION = 2;
+export const LATEST_SCHEMA_VERSION = 3;
 export async function migrate() {
   const conn = await pool.getConnection();
   try {
@@ -48,6 +48,28 @@ export async function migrate() {
         "CREATE TABLE IF NOT EXISTS media_deletions (path VARCHAR(80) PRIMARY KEY, queued_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3)) ENGINE=InnoDB",
       );
       await conn.query("INSERT INTO schema_migrations(version) VALUES (2)");
+    }
+    const [v3] = await conn.query(
+      "SELECT version FROM schema_migrations WHERE version=3",
+    );
+    if (!v3.length) {
+      await conn.query(`CREATE TABLE IF NOT EXISTS calls (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        call_key CHAR(36) CHARACTER SET ascii NOT NULL UNIQUE,
+        conversation_id INT UNSIGNED NOT NULL,
+        caller_id INT UNSIGNED NOT NULL,
+        callee_id INT UNSIGNED NOT NULL,
+        kind ENUM('voice','video') NOT NULL,
+        status VARCHAR(20) NOT NULL,
+        created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        answered_at DATETIME(3) NULL,
+        ended_at DATETIME(3) NULL,
+        INDEX caller_history (caller_id,id), INDEX callee_history (callee_id,id),
+        FOREIGN KEY (conversation_id) REFERENCES conversations(id),
+        FOREIGN KEY (caller_id) REFERENCES users(id),
+        FOREIGN KEY (callee_id) REFERENCES users(id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+      await conn.query("INSERT INTO schema_migrations(version) VALUES (3)");
     }
   } finally {
     await conn.query("SELECT RELEASE_LOCK('message_schema_migration')");

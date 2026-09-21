@@ -664,3 +664,106 @@ test("real MySQL authentication, chat, media, sockets, and access controls", asy
     assert.equal((await request("/auth/me", { user: eve })).res.status, 401);
   });
 });
+
+test("calls enforce membership and device ownership, relay signals, and persist history", async () => {
+  const caller = await register("caller"),
+    callee = await register("callee"),
+    outsider = await register("outsider");
+  const created = await request("/conversations", {
+    user: caller,
+    body: { userId: callee.id },
+  });
+  assert.equal(created.res.status, 201, JSON.stringify(created.data));
+  const cid = created.data.conversation?.id || created.data.id;
+  const a = await socketFor(caller),
+    b = await socketFor(callee),
+    b2 = await socketFor(callee),
+    x = await socketFor(outsider);
+  await Promise.all(
+    [a, b, b2, x].map((s) =>
+      s.connected ? Promise.resolve() : event(s, "connect"),
+    ),
+  );
+  const send = (s, name, data) =>
+    new Promise((resolve, reject) =>
+      s.timeout(4000).emit(name, data, (e, r) => (e ? reject(e) : resolve(r))),
+    );
+  assert.equal((await request("/calls")).res.status, 401);
+  assert.equal(
+    (await request("/calls/config", { user: caller })).res.status,
+    200,
+  );
+  assert.equal(
+    (await send(x, "call:start", { conversationId: cid, kind: "video" })).ok,
+    false,
+  );
+  const incoming = event(b, "call:incoming");
+  const started = await send(a, "call:start", {
+    conversationId: cid,
+    kind: "video",
+  });
+  assert.equal(started.ok, true, JSON.stringify(started));
+  assert.equal((await incoming).callId, started.callId);
+  const callId = started.callId;
+  assert.equal((await send(a, "call:accept", { callId })).ok, false);
+  assert.equal((await send(x, "call:end", { callId })).ok, false);
+  assert.equal(
+    (await send(b, "call:start", { conversationId: cid, kind: "voice" })).ok,
+    false,
+  );
+  const accepted = event(a, "call:accepted");
+  assert.equal((await send(b, "call:accept", { callId })).ok, true);
+  await accepted;
+  assert.equal((await send(b2, "call:accept", { callId })).ok, false);
+  assert.equal((await send(b2, "call:end", { callId })).ok, false);
+  assert.equal(
+    (
+      await send(x, "call:signal", {
+        callId,
+        signal: { type: "offer", sdp: "private" },
+      })
+    ).ok,
+    false,
+  );
+  assert.equal(
+    (
+      await send(b, "call:signal", {
+        callId,
+        signal: { type: "offer", sdp: "wrong-role" },
+      })
+    ).ok,
+    false,
+  );
+  const signal = event(b, "call:signal");
+  assert.equal(
+    (
+      await send(a, "call:signal", {
+        callId,
+        signal: { type: "offer", sdp: "test-offer" },
+      })
+    ).ok,
+    true,
+  );
+  assert.equal((await signal).signal.sdp, "test-offer");
+  const ended = event(a, "call:ended");
+  assert.equal((await send(b, "call:end", { callId })).ok, true);
+  assert.equal((await ended).status, "ended");
+  const history = await request("/calls", { user: caller });
+  assert.equal(history.data.calls[0].callId, callId);
+  assert.equal(history.data.calls[0].status, "ended");
+  assert.ok(history.data.calls[0].answeredAt);
+  assert.ok(history.data.calls[0].endedAt);
+  assert.equal(
+    (await request("/calls", { user: outsider })).data.calls.length,
+    0,
+  );
+  assert.equal(
+    (
+      await send(a, "call:signal", {
+        callId,
+        signal: { type: "offer", sdp: "stale" },
+      })
+    ).ok,
+    false,
+  );
+});

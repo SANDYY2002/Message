@@ -1,3 +1,4 @@
+import { mountCalls } from "./calls.js";
 import express from "express";
 import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
@@ -62,6 +63,7 @@ export async function createApp(io) {
     await query("SELECT 1");
     res.json({ status: "ok" });
   });
+  mountCalls(app);
   const authLimiter = limiter(20, 15 * 60_000);
   const dummyHash = await bcrypt.hash(randomUUID(), 12);
   app.post("/api/auth/register", authLimiter, async (req, res) => {

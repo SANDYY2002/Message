@@ -29,7 +29,7 @@ Update `backend/.env`:
 
 ```dotenv
 NODE_ENV=development
-PORT=3005
+PORT=4000
 PUBLIC_ORIGIN=http://localhost:5173
 DB_HOST=127.0.0.1
 DB_PORT=3306
@@ -116,7 +116,7 @@ Set the database credentials and these production values:
 
 ```dotenv
 NODE_ENV=production
-PORT=3005
+PORT=4000
 PUBLIC_ORIGIN=https://chat.example.com
 COOKIE_SECURE=true
 TRUST_PROXY=1
@@ -181,7 +181,7 @@ server {
     client_max_body_size 26m;
 
     location / {
-        proxy_pass http://127.0.0.1:3005;
+        proxy_pass http://127.0.0.1:4000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -195,7 +195,7 @@ server {
 }
 ```
 
-Do not add an Nginx alias for uploaded files: all media must pass through Express authorization. Only ports 80/443 should be publicly reachable; keep 3005 and 3306 private. The TRUST_PROXY=1 configuration above assumes exactly one trusted Nginx proxy. Adjust both proxy trust and forwarded headers if your architecture differs.
+Do not add an Nginx alias for uploaded files: all media must pass through Express authorization. Only ports 80/443 should be publicly reachable; keep 4000 and 3306 private. The TRUST_PROXY=1 configuration above assumes exactly one trusted Nginx proxy. Adjust both proxy trust and forwarded headers if your architecture differs.
 
 Check and reload Nginx:
 
@@ -232,8 +232,8 @@ A completed upload that is interrupted by a process crash before its database co
 
 ## Troubleshooting
 
-- **Existing checkout after the port update:** Git does not update your private `backend/.env`. Change its `PORT` to `3005`, keep `PUBLIC_ORIGIN=http://localhost:5173` for local development, and restart `npm run dev`.
-- **EACCES / EADDRINUSE when starting the API:** the operating system refused the selected port or it is already in use. Choose an available port in `backend/.env` and update both proxy targets in `frontend/vite.config.js` to match. The default is now `3005`.
+- **Existing checkout after the port update:** Git does not update your private `backend/.env`. Change its `PORT` to `4000`, keep `PUBLIC_ORIGIN=http://localhost:5173` for local development, and restart `npm run dev`.
+- **EACCES / EADDRINUSE when starting the API:** the operating system refused the selected port or it is already in use. Choose an available port in `backend/.env` and update both proxy targets in `frontend/vite.config.js` to match. The default is now `4000`.
 
 - **Database access denied:** check DB_USER/DB_PASSWORD and the MySQL account host grants.
 - **Origin not allowed / reconnecting:** PUBLIC_ORIGIN must exactly match the page's scheme, host, and port, with no trailing slash. Restart the API after changes.
@@ -243,3 +243,23 @@ A completed upload that is interrupted by a process crash before its database co
 - **Video not playable:** use an MP4 with H.264/AAC or a WebM supported by your browser. This release does not transcode media.
 - **Missing tables:** run `npm run db:migrate` before starting the API.
 - **Forgotten password:** self-service reset is not included in this version. Do not promise account recovery until a verified recovery flow is added.
+
+## Voice and video calls
+
+Pull `main`, keep `PORT=4000` in your private `backend/.env`, and run `npm run db:migrate` before `npm run dev`. Migration 3 adds call history without changing existing messages. The browser stays at `http://localhost:5173`.
+
+Sign in as two different users in separate browser profiles. Open their conversation and click Voice call or Video call, allow microphone/camera access, and accept in the second window. Use headphones to avoid feedback. The call controls mute the microphone, toggle the camera, and hang up. The history button shows recent calls and missed calls with older-page loading. Media is not recorded or stored; MySQL stores call participants, type, status and timestamps only. Accepted timestamps indicate acceptance, not proof of media connection.
+
+Incoming calls require the recipient to have the app open and connected. Unanswered invitations expire after 30 seconds. Calls end on logout, socket disconnect, server restart, or after four hours. Camera/microphone permissions must be allowed; cancelling during a permission prompt discards and stops any media granted later. One call per user is enforced across tabs; answering on one tab dismisses the invitation on the others.
+
+For two separate devices, serve the app over HTTPS and set PUBLIC_ORIGIN to that exact origin. Plain HTTP on a LAN IP does not provide browser microphone/camera access. Calls across different networks may need a TURN relay. Configure your own coturn server with shared-secret authentication, then set these backend environment values:
+
+```dotenv
+STUN_URL=stun:turn.example.com:3478
+TURN_URLS=turn:turn.example.com:3478?transport=udp,turns:turn.example.com:5349?transport=tcp
+TURN_SECRET=replace-with-your-coturn-shared-secret
+```
+
+Replace the example host with your configured relay; these are not working relay credentials. The authenticated config endpoint mints four-hour TURN credentials. Keep TURN_SECRET backend-only; the shared secret is never returned to clients. No third-party relay is configured by default. Configure the relay's TLS certificate and network/firewall ports according to its deployment, then test using devices on different networks.
+
+Run one backend Node process for this version. Active signaling and busy state are in memory; multiple instances need shared coordination before scaling. Server startup marks unfinished history rows disconnected. If MySQL fails during hangup, media still stops and a history update error is logged; startup reconciles unfinished rows. Backend hosting is still required when the frontend is on Vercel.

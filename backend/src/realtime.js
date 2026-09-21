@@ -1,9 +1,11 @@
+import { createCalls } from "./calls.js";
 import { authenticate } from "./auth.js";
 import { query } from "./db.js";
 import { id } from "./validation.js";
 import { member, otherUser } from "./chat.js";
 export function setupRealtime(io) {
   const online = new Map();
+  const calls = createCalls(io);
   io.use(async (socket, next) => {
     try {
       socket.data.auth = await authenticate(socket.handshake.headers);
@@ -33,6 +35,7 @@ export function setupRealtime(io) {
       () => socket.disconnect(true),
       Math.min(Math.max(0, new Date(expires) - Date.now()), 2147483647),
     );
+    calls.attach(socket);
     let lastTyping = 0;
     socket.on("typing", async (data) => {
       if (Date.now() - lastTyping < 500) return;
@@ -66,5 +69,8 @@ export function setupRealtime(io) {
     3600000,
   );
   cleanup.unref();
-  return () => clearInterval(cleanup);
+  return async () => {
+    clearInterval(cleanup);
+    await calls.close();
+  };
 }
