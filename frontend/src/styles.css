@@ -1799,3 +1799,51 @@ button:active:not(:disabled) {
     padding: 4px 12px;
   }
 }
+
+.notification-settings {
+  padding: 0 24px 8px;
+}
+.notification-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  padding: 8px 0;
+}
+.notification-toggle[aria-pressed="true"] {
+  color: var(--accent);
+}
+.notification-settings p {
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+}
+.message-notification-toast {
+  position: fixed;
+  z-index: 200;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100vw - 32px);
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: #173c2b;
+  color: #fff;
+  box-shadow: 0 8px 32px #0004;
+}
+.message-notification-toast button {
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+}

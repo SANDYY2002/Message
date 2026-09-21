@@ -1,3 +1,4 @@
+import Notifications from "./components/Notifications";
 import Calls from "./components/Calls";
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
@@ -480,7 +481,8 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
   useEffect(() => {
     if (!activeId || historyLoading || !messages.length) return;
     const mark = async () => {
-      if (document.visibilityState !== "visible") return;
+      if (document.visibilityState !== "visible" || !document.hasFocus())
+        return;
       const mid = messages.at(-1).id;
       if ((readSent.current.get(activeId) || 0) >= mid) return;
       readSent.current.set(activeId, mid);
@@ -492,7 +494,11 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
     };
     mark();
     document.addEventListener("visibilitychange", mark);
-    return () => document.removeEventListener("visibilitychange", mark);
+    window.addEventListener("focus", mark);
+    return () => {
+      document.removeEventListener("visibilitychange", mark);
+      window.removeEventListener("focus", mark);
+    };
   }, [activeId, messages, historyLoading]);
   useEffect(() => {
     if (!olderLoading) bottom.current?.scrollIntoView({ behavior: "instant" });
@@ -649,6 +655,14 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
             {connected ? "Connected" : "Reconnecting"}
           </span>
         </header>
+        <Notifications
+          socket={callSocket}
+          user={user}
+          activeId={activeId}
+          conversations={conversations}
+          onOpen={select}
+          sending={sending}
+        />
         <div className="inbox-heading">
           <div>
             <span className="small-label">YOUR EVERYDAY CONNECTIONS</span>

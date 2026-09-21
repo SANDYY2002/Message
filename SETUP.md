@@ -263,3 +263,11 @@ TURN_SECRET=replace-with-your-coturn-shared-secret
 Replace the example host with your configured relay; these are not working relay credentials. The authenticated config endpoint mints four-hour TURN credentials. Keep TURN_SECRET backend-only; the shared secret is never returned to clients. No third-party relay is configured by default. Configure the relay's TLS certificate and network/firewall ports according to its deployment, then test using devices on different networks.
 
 Run one backend Node process for this version. Active signaling and busy state are in memory; multiple instances need shared coordination before scaling. Server startup marks unfinished history rows disconnected. If MySQL fails during hangup, media still stops and a history update error is logged; startup reconciles unfinished rows. Backend hosting is still required when the frontend is on Vercel.
+
+## Message notifications
+
+Click **Enable notifications** above the conversation list and allow notifications in the browser prompt. This preference is saved per account in that browser. Click **Disable notifications** to turn browser alerts off. If permission was blocked, change this site's notification permission in browser settings first. Browser notifications require HTTPS or localhost and a compatible browser; mobile browser support and OS notification settings vary.
+
+New messages in other conversations produce an in-app alert. When the window is hidden or unfocused, enabled browser notifications show a generic notice without sender names, message text, or attachment previews. Clicking opens the conversation. The browser tab title also shows the unread count. Messages you send and messages in the actively focused conversation do not trigger alerts. Opening a conversation dismisses its system notifications; logout closes this account's notifications. Supported browsers use Web Locks to deduplicate alerts across tabs.
+
+Keep Message open and connected to receive these alerts. The notification worker only displays notifications and handles clicks; it does not cache private messages or subscribe to background push. Closing the browser, losing connectivity, or the OS suspending the tab stops new alerts until you reconnect. Existing unread counts still refresh on reconnect. OS Focus Assist / Do Not Disturb may suppress browser banners or sounds.
