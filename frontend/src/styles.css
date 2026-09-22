@@ -2329,3 +2329,386 @@ button:active:not(:disabled) {
     display: none;
   }
 }
+
+/* A calmer, more legible conversation workspace. */
+:root {
+  --bg: #f3f6f5;
+  --surface-soft: #f0f5f3;
+  --text: #203c35;
+  --muted: #667d74;
+  --line: #dde8e2;
+  --accent: #176b54;
+  --accent-light: #e4f2eb;
+  --mine: #d9eee3;
+}
+:root[data-theme="dark"] {
+  --bg: #10201c;
+  --surface: #172a24;
+  --surface-soft: #1d332b;
+  --text: #e7f2eb;
+  --muted: #a0b8ac;
+  --line: #2d463a;
+  --accent: #a2ddbd;
+  --accent-light: #294a3b;
+  --bubble: #21382e;
+  --mine: #315b47;
+}
+.chat-shell {
+  grid-template-columns: 80px 360px minmax(0, 1fr);
+}
+.rail {
+  padding-top: 24px;
+  gap: 30px;
+  background: var(--surface);
+}
+.rail-logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 15px;
+}
+.rail .icon-button {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  transition:
+    background 0.16s,
+    color 0.16s;
+}
+.rail .icon-button:hover {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+.rail-active:before {
+  left: -18px;
+  height: 18px;
+}
+.sidebar {
+  background: var(--surface);
+}
+.sidebar-header {
+  padding: 28px 24px 24px;
+}
+.sidebar-header .brand {
+  font-size: 25px;
+  letter-spacing: -1px;
+}
+.connection {
+  padding: 6px 8px;
+  border-radius: 20px;
+  background: var(--surface-soft);
+  font-size: 10px;
+}
+.connection i {
+  width: 6px;
+  height: 6px;
+}
+.inbox-heading {
+  padding: 12px 24px 0;
+}
+.inbox-heading .small-label {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+}
+.inbox-heading h1 {
+  font-size: 30px;
+  letter-spacing: -1.2px;
+  margin: 8px 0 0;
+}
+.inbox-heading h1 > span {
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--accent-light);
+  color: var(--accent);
+}
+.new-button {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  color: var(--bg);
+  box-shadow: 0 4px 10px #174c3314;
+}
+.group-new {
+  margin: 0 24px 5px;
+  width: fit-content;
+  border: 0;
+  background: var(--surface-soft);
+  padding: 9px 13px;
+  font-size: 12px;
+  color: var(--accent);
+}
+.group-new:hover {
+  background: var(--accent-light);
+}
+.search-box {
+  margin: 22px 24px 0;
+  padding: 13px 14px;
+  border-radius: 13px;
+  border-color: var(--line);
+}
+.search-box input {
+  font-size: 13px;
+}
+.list-label {
+  padding: 23px 25px 12px;
+  font-size: 9px;
+  letter-spacing: 1px;
+}
+.conversation-list {
+  padding: 0 12px 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.conversation {
+  padding: 16px 12px;
+  gap: 13px;
+  border: 1px solid transparent;
+  border-radius: 15px;
+  margin-bottom: 5px;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.conversation.selected {
+  border-color: var(--line);
+  background: var(--accent-light);
+}
+.conversation-title strong {
+  font-size: 14px;
+  font-weight: 650;
+}
+.conversation-title time {
+  font-size: 10px;
+}
+.conversation-preview > span {
+  font-size: 12px;
+}
+.conversation-copy > small {
+  font-size: 10px;
+  margin-top: 6px;
+}
+.conversation-preview b {
+  min-width: 20px;
+  height: 20px;
+  font-size: 10px;
+  padding: 3px 6px;
+  border-radius: 7px;
+  color: var(--bg);
+}
+.avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
+}
+.profile {
+  padding: 18px 24px;
+  gap: 12px;
+  background: var(--surface-soft);
+}
+.profile strong {
+  font-size: 12px;
+}
+.profile span:not(.avatar) {
+  font-size: 11px;
+}
+.chat-header {
+  height: 84px;
+  padding: 0 30px;
+  gap: 14px;
+}
+.chat-header .avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 15px;
+}
+.chat-person h2 {
+  font-size: 16px;
+}
+.chat-person > span {
+  font-size: 11px;
+}
+.private-label {
+  font-size: 11px;
+}
+.message-area {
+  padding: 28px clamp(20px, 4vw, 64px);
+  background-image: radial-gradient(var(--line) 0.65px, transparent 0.65px);
+  background-size: 24px 24px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.message-row {
+  margin: 12px 0;
+}
+.message-bubble {
+  border: 1px solid var(--line);
+  border-radius: 19px 19px 19px 5px;
+  padding: 13px 17px 10px;
+  box-shadow: 0 3px 10px #143a2405;
+}
+.mine .message-bubble {
+  border-color: transparent;
+  border-radius: 19px 19px 5px 19px;
+}
+.message-bubble > p {
+  font-size: 14px;
+  line-height: 1.65;
+}
+.message-meta {
+  font-size: 10px;
+  margin-top: 7px;
+}
+.date-divider {
+  margin: 14px 0 26px;
+}
+.date-divider span {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 7px 13px;
+  border-radius: 20px;
+  font-size: 10px;
+}
+.composer-area {
+  padding: 14px clamp(18px, 3vw, 40px) 18px;
+}
+.composer {
+  border-radius: 20px;
+  padding: 10px 12px;
+  gap: 10px;
+  box-shadow: 0 5px 22px #173a2708;
+}
+.composer:focus-within {
+  border-color: var(--accent);
+}
+.composer textarea {
+  font-size: 14px;
+  padding: 10px 3px;
+  min-width: 0;
+}
+.send-button {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  color: var(--bg);
+}
+.composer-note {
+  font-size: 10px;
+  margin-top: 10px;
+}
+.empty-small {
+  padding: 48px 20px;
+  gap: 12px;
+}
+.empty-small > svg {
+  padding: 12px;
+  width: 58px;
+  height: 58px;
+  color: var(--accent);
+  background: var(--accent-light);
+  border-radius: 20px;
+}
+.empty-small strong {
+  font-size: 15px;
+}
+.empty-small p {
+  font-size: 13px;
+}
+.conversation-intro {
+  padding: 60px 20px;
+}
+.conversation-intro h2 {
+  font-size: 23px;
+}
+.conversation-intro p {
+  font-size: 14px;
+  line-height: 1.6;
+}
+.group-dialog .group-create {
+  color: var(--bg);
+}
+@media (min-width: 1600px) {
+  .chat-shell {
+    grid-template-columns: 88px 390px minmax(0, 1fr);
+  }
+}
+@media (min-width: 761px) and (max-width: 1050px) {
+  .chat-shell {
+    grid-template-columns: 68px 300px minmax(0, 1fr);
+  }
+  .sidebar-header {
+    padding-inline: 18px;
+  }
+  .chat-header {
+    padding-inline: 20px;
+  }
+  .private-label {
+    display: none;
+  }
+}
+@media (max-width: 760px) {
+  .chat-shell {
+    grid-template-columns: 1fr;
+  }
+  .sidebar-header {
+    padding: 22px 22px 20px;
+  }
+  .inbox-heading {
+    padding: 10px 22px 0;
+  }
+  .group-new {
+    margin-inline: 22px;
+  }
+  .search-box {
+    margin: 20px 22px 0;
+  }
+  .conversation {
+    padding: 15px 12px;
+  }
+  .conversation-title strong {
+    font-size: 15px;
+  }
+  .conversation-preview > span {
+    font-size: 13px;
+  }
+  .chat-header {
+    height: 76px;
+    padding: 0 14px;
+    gap: 10px;
+  }
+  .chat-person h2 {
+    font-size: 15px;
+  }
+  .private-label {
+    display: none;
+  }
+  .message-area {
+    padding: 18px 14px;
+  }
+  .message-bubble {
+    max-width: 86%;
+    padding: 11px 13px 8px;
+  }
+  .composer-area {
+    padding: 10px 12px 12px;
+  }
+  .composer {
+    padding: 7px;
+    border-radius: 18px;
+    gap: 6px;
+  }
+  .composer textarea {
+    font-size: 16px;
+  }
+  .composer-note {
+    font-size: 9px;
+  }
+  .rail {
+    padding: 8px 22px calc(8px + env(safe-area-inset-bottom, 0px));
+    gap: 16px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rail .icon-button,
+  .conversation {
+    transition: none;
+  }
+}
