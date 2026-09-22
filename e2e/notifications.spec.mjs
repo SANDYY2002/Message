@@ -19,6 +19,24 @@ test("message notifications are opt-in, private, actionable, and disabled on req
   // Model foreground/background deterministically; exercise the real notification service worker.
   await b.addInitScript(() => {
     window.__notificationFocus = true;
+    window.__notificationRequests = [];
+    // Call the real browser API while observing requests: headless CI may not
+    // retain OS notifications in getNotifications(), even when display succeeds.
+    const show = ServiceWorkerRegistration.prototype.showNotification;
+    ServiceWorkerRegistration.prototype.showNotification = async function (
+      title,
+      options,
+    ) {
+      const entry = { title, ...options, completed: false };
+      window.__notificationRequests.push(entry);
+      try {
+        await show.call(this, title, options);
+        entry.completed = true;
+      } catch (error) {
+        entry.error = error.message;
+        throw error;
+      }
+    };
     Object.defineProperty(document, "hasFocus", {
       value: () => window.__notificationFocus,
     });
@@ -51,6 +69,7 @@ test("message notifications are opt-in, private, actionable, and disabled on req
           }))
         : [];
     });
+  const requests = () => b.evaluate(() => window.__notificationRequests);
   async function send(text) {
     await a.getByRole("textbox", { name: "Message", exact: true }).fill(text);
     await a.getByRole("button", { name: "Send message", exact: true }).click();
@@ -78,7 +97,7 @@ test("message notifications are opt-in, private, actionable, and disabled on req
       b.getByRole("button", { name: "New message · Open conversation" }),
     ).toBeVisible();
     await expect(b).toHaveTitle("(1) Message");
-    expect(await notifications()).toHaveLength(0);
+    expect(await requests()).toHaveLength(0);
     await b
       .getByRole("button", { name: "Enable notifications", exact: true })
       .click();
@@ -89,8 +108,10 @@ test("message notifications are opt-in, private, actionable, and disabled on req
       window.__notificationFocus = false;
     });
     await send("Secret content must never appear in system banners");
-    await expect.poll(async () => (await notifications()).length).toBe(1);
-    const [notice] = await notifications();
+    await expect
+      .poll(async () => await requests())
+      .toMatchObject([{ completed: true }]);
+    const [notice] = await requests();
     expect(notice.title).toBe("New message");
     expect(notice.body).toBe("You have a new message in Message.");
     expect(JSON.stringify(notice)).not.toContain("Secret content");
@@ -113,7 +134,7 @@ test("message notifications are opt-in, private, actionable, and disabled on req
         .locator(".message-bubble")
         .getByText("Already reading this conversation", { exact: true }),
     ).toBeVisible();
-    expect(await notifications()).toHaveLength(0);
+    expect(await requests()).toHaveLength(1);
     await expect(
       b.getByRole("button", { name: "New message · Open conversation" }),
     ).toHaveCount(0);
@@ -132,8 +153,23 @@ test("message notifications are opt-in, private, actionable, and disabled on req
         .locator(".message-bubble")
         .getByText("Disabled browser alerts", { exact: true }),
     ).toBeVisible();
-    expect(await notifications()).toHaveLength(0);
+    expect(await requests()).toHaveLength(1);
     expect(errors).toEqual([]);
+  } catch (error) {
+    console.log(
+      "Notification diagnostics:",
+      await b
+        .evaluate(() => ({
+          permission: Notification.permission,
+          focused: document.hasFocus(),
+          requests: window.__notificationRequests,
+          statuses: [...document.querySelectorAll('[role="status"]')].map(
+            (n) => n.textContent,
+          ),
+        }))
+        .catch(() => ({})),
+    );
+    throw error;
   } finally {
     await aContext.close();
     await bContext.close();
