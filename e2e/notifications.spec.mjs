@@ -69,6 +69,13 @@ test("message notifications are opt-in, private, actionable, and disabled on req
     await page.locator(".auth-submit").click();
     await expect(page.getByText("Connected", { exact: true })).toBeVisible();
   }
+  async function openSettings() {
+    await b.getByRole("button", { name: /^Settings/ }).click();
+    await b.getByRole("tab", { name: "Notifications & sound" }).click();
+  }
+  async function closeSettings() {
+    await b.getByRole("button", { name: "Close settings" }).click();
+  }
   const notifications = () =>
     b.evaluate(async () => {
       const r = await navigator.serviceWorker.getRegistration("/");
@@ -112,6 +119,7 @@ test("message notifications are opt-in, private, actionable, and disabled on req
     await expect(b).toHaveTitle("(1) Message");
     expect(await requests()).toHaveLength(0);
     expect(await b.evaluate(() => window.__soundStarts)).toBe(0);
+    await openSettings();
     await b.getByRole("button", { name: "Enable sound", exact: true }).click();
     await expect(
       b.getByRole("button", { name: "Sound on", exact: true }),
@@ -123,6 +131,7 @@ test("message notifications are opt-in, private, actionable, and disabled on req
     await expect(
       b.getByRole("button", { name: "Disable notifications", exact: true }),
     ).toHaveAttribute("aria-pressed", "true");
+    await closeSettings();
     await b.evaluate(() => {
       window.__notificationFocus = false;
     });
@@ -159,6 +168,7 @@ test("message notifications are opt-in, private, actionable, and disabled on req
     await expect(
       b.getByRole("button", { name: "New message · Open conversation" }),
     ).toHaveCount(0);
+    await openSettings();
     await b
       .getByRole("button", { name: "Disable notifications", exact: true })
       .click();
@@ -169,6 +179,7 @@ test("message notifications are opt-in, private, actionable, and disabled on req
       window.__notificationFocus = false;
     });
     await b.getByRole("button", { name: "Sound on", exact: true }).click();
+    await closeSettings();
     await send("Disabled browser alerts");
     await expect(
       b
@@ -178,6 +189,7 @@ test("message notifications are opt-in, private, actionable, and disabled on req
     expect(await requests()).toHaveLength(1);
     expect(await b.evaluate(() => window.__soundStarts)).toBe(4);
     await b.reload();
+    await openSettings();
     await expect(
       b.getByRole("button", { name: "Enable sound", exact: true }),
     ).toHaveAttribute("aria-pressed", "false");

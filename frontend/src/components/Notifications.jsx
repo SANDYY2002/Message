@@ -56,6 +56,7 @@ async function closeNotifications(uid, cid) {
 }
 export default function Notifications({
   socket,
+  settingsTarget,
   user,
   activeId,
   conversations,
@@ -351,66 +352,70 @@ export default function Notifications({
   }
   return (
     <>
-      <div className="notification-settings">
-        <div className="notification-heading">
-          <span>STAY IN THE LOOP</span>
-          <small>Make it yours</small>
-        </div>
-        <div className="notification-controls">
-          <button
-            className="notification-toggle"
-            disabled={busy}
-            aria-pressed={enabled && permission === "granted"}
-            onClick={toggle}
-          >
-            {enabled && permission === "granted" ? (
-              <Bell size={17} />
-            ) : (
-              <BellOff size={17} />
+      {settingsTarget &&
+        createPortal(
+          <div className="notification-settings">
+            <div className="notification-heading">
+              <span>STAY IN THE LOOP</span>
+              <small>Make it yours</small>
+            </div>
+            <div className="notification-controls">
+              <button
+                className="notification-toggle"
+                disabled={busy}
+                aria-pressed={enabled && permission === "granted"}
+                onClick={toggle}
+              >
+                {enabled && permission === "granted" ? (
+                  <Bell size={17} />
+                ) : (
+                  <BellOff size={17} />
+                )}
+                {busy
+                  ? "Enabling…"
+                  : enabled
+                    ? "Disable notifications"
+                    : "Enable notifications"}
+              </button>
+              <button
+                className="notification-toggle"
+                aria-pressed={soundEnabled}
+                onClick={toggleSound}
+              >
+                {soundEnabled ? <Volume2 size={17} /> : <VolumeX size={17} />}
+                {soundEnabled ? "Sound on" : "Enable sound"}
+              </button>
+              <button
+                className="sound-test"
+                aria-label="Test sound"
+                title="Test sound"
+                onClick={async () => {
+                  try {
+                    await sound.current.unlock();
+                    sound.current.play();
+                  } catch (e) {
+                    setNotice(e.message);
+                  }
+                }}
+              >
+                <Play size={15} />
+              </button>
+            </div>
+            {notice && (
+              <p role="status">
+                {notice}
+                <button
+                  className="icon-button"
+                  aria-label="Dismiss notification status"
+                  onClick={() => setNotice("")}
+                >
+                  <X size={14} />
+                </button>
+              </p>
             )}
-            {busy
-              ? "Enabling…"
-              : enabled
-                ? "Disable notifications"
-                : "Enable notifications"}
-          </button>
-          <button
-            className="notification-toggle"
-            aria-pressed={soundEnabled}
-            onClick={toggleSound}
-          >
-            {soundEnabled ? <Volume2 size={17} /> : <VolumeX size={17} />}
-            {soundEnabled ? "Sound on" : "Enable sound"}
-          </button>
-          <button
-            className="sound-test"
-            aria-label="Test sound"
-            title="Test sound"
-            onClick={async () => {
-              try {
-                await sound.current.unlock();
-                sound.current.play();
-              } catch (e) {
-                setNotice(e.message);
-              }
-            }}
-          >
-            <Play size={15} />
-          </button>
-        </div>
-        {notice && (
-          <p role="status">
-            {notice}
-            <button
-              className="icon-button"
-              aria-label="Dismiss notification status"
-              onClick={() => setNotice("")}
-            >
-              <X size={14} />
-            </button>
-          </p>
+          </div>,
+          settingsTarget,
         )}
-      </div>
       {toast &&
         createPortal(
           <div className="message-notification-toast" role="status">

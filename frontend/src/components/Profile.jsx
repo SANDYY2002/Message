@@ -12,8 +12,15 @@ export const avatarPresets = {
 };
 export const presetImage = (key) =>
   key !== "initials" && avatarPresets[key] ? `/avatars/${key}.svg` : null;
-export default function Profile({ user, onUpdate, onLogout, close }) {
+export default function Profile({
+  user,
+  onUpdate,
+  onLogout,
+  close,
+  notificationHost,
+}) {
   const dialog = useRef(null);
+  const [tab, setTab] = useState("account");
   const [username, setUsername] = useState(user.username),
     [file, setFile] = useState(null),
     [preview, setPreview] = useState("");
@@ -53,215 +60,266 @@ export default function Profile({ user, onUpdate, onLogout, close }) {
     <dialog
       ref={dialog}
       className="group-dialog profile-dialog"
-      aria-label="Profile settings"
+      aria-label="Settings"
       onCancel={(e) => {
         e.preventDefault();
         if (!busy) close();
       }}
     >
       <header>
-        <h2>Profile settings</h2>
+        <h2>Settings</h2>
         <button
           className="icon-button"
-          aria-label="Close profile"
+          aria-label="Close settings"
           disabled={busy}
           onClick={close}
         >
           <X />
         </button>
       </header>
-      <div className="profile-identity">
-        <span className="profile-identity-avatar">
-          {user.avatarUrl || presetImage(user.avatarPreset) ? (
-            <img
-              src={user.avatarUrl || presetImage(user.avatarPreset)}
-              alt="Current avatar"
-            />
-          ) : (
-            user.displayName.slice(0, 1).toUpperCase()
-          )}
-        </span>
-        <div>
-          <h3>{user.displayName}</h3>
-          <p>@{user.username}</p>
-          <small>Your space. Your style.</small>
-        </div>
+      <div
+        className="settings-tabs"
+        role="tablist"
+        aria-label="Settings sections"
+      >
+        <button
+          role="tab"
+          id="account-tab"
+          aria-controls="account-panel"
+          aria-selected={tab === "account"}
+          onClick={() => setTab("account")}
+        >
+          Profile & account
+        </button>
+        <button
+          role="tab"
+          id="notifications-tab"
+          aria-controls="notifications-panel"
+          aria-selected={tab === "notifications"}
+          onClick={() => setTab("notifications")}
+        >
+          Notifications & sound
+        </button>
       </div>
-      {error && (
-        <p role="alert" className="error">
-          {error}
+      <section
+        id="notifications-panel"
+        role="tabpanel"
+        aria-labelledby="notifications-tab"
+        hidden={tab !== "notifications"}
+      >
+        <h3>Stay connected, your way</h3>
+        <p className="group-help">
+          Choose browser alerts and a message chime. Your preferences are saved
+          for this account on this browser.
         </p>
-      )}
-      {notice && <p role="status">{notice}</p>}
-      <fieldset disabled={busy}>
-        <legend>
-          <Camera size={17} /> Your avatar
-        </legend>
-        <div className="avatar-presets">
-          {Object.entries(avatarPresets).map(([key, icon]) => (
+        <div ref={notificationHost} />
+        <p className="group-help">
+          Keep Message open to receive alerts. The conversation you’re actively
+          reading stays quiet.
+        </p>
+      </section>
+      <section
+        id="account-panel"
+        role="tabpanel"
+        aria-labelledby="account-tab"
+        hidden={tab !== "account"}
+      >
+        <div className="profile-identity">
+          <span className="profile-identity-avatar">
+            {user.avatarUrl || presetImage(user.avatarPreset) ? (
+              <img
+                src={user.avatarUrl || presetImage(user.avatarPreset)}
+                alt="Current avatar"
+              />
+            ) : (
+              user.displayName.slice(0, 1).toUpperCase()
+            )}
+          </span>
+          <div>
+            <h3>{user.displayName}</h3>
+            <p>@{user.username}</p>
+            <small>Your space. Your style.</small>
+          </div>
+        </div>
+        {error && (
+          <p role="alert" className="error">
+            {error}
+          </p>
+        )}
+        {notice && <p role="status">{notice}</p>}
+        <fieldset disabled={busy}>
+          <legend>
+            <Camera size={17} /> Your avatar
+          </legend>
+          <div className="avatar-presets">
+            {Object.entries(avatarPresets).map(([key, icon]) => (
+              <button
+                key={key}
+                aria-label={`Use ${key} avatar`}
+                aria-pressed={
+                  !user.avatarUrl && (user.avatarPreset || "initials") === key
+                }
+                onClick={() =>
+                  action(async () => {
+                    setFile(null);
+                    await save(
+                      "/profile/avatar",
+                      {
+                        method: "PATCH",
+                        body: JSON.stringify({ preset: key }),
+                      },
+                      "Avatar updated.",
+                    );
+                  })
+                }
+              >
+                {presetImage(key) ? (
+                  <img src={presetImage(key)} alt="" />
+                ) : (
+                  <span>{user.displayName.slice(0, 1).toUpperCase()}</span>
+                )}
+                <small>{key === "initials" ? "Initials" : key}</small>
+              </button>
+            ))}
+          </div>
+          <label>
+            Upload profile image
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(e) => {
+                const f = e.target.files[0];
+                setError("");
+                if (f && f.size > 2 * 1024 * 1024) {
+                  setError("Choose an image up to 2 MB.");
+                  setFile(null);
+                  e.target.value = "";
+                } else setFile(f || null);
+              }}
+            />
+          </label>
+          <p className="group-help">
+            JPG, PNG or WebP, up to 2 MB and 16 megapixels. Images are cropped
+            from the center to a 1:1 square.
+          </p>
+          {(preview || user.avatarUrl) && (
+            <img
+              className="profile-preview"
+              src={preview || user.avatarUrl}
+              alt="Square avatar preview"
+            />
+          )}
+          {file && (
             <button
-              key={key}
-              aria-label={`Use ${key} avatar`}
-              aria-pressed={
-                !user.avatarUrl && (user.avatarPreset || "initials") === key
-              }
               onClick={() =>
                 action(async () => {
-                  setFile(null);
+                  const form = new FormData();
+                  form.append("avatar", file);
                   await save(
                     "/profile/avatar",
-                    { method: "PATCH", body: JSON.stringify({ preset: key }) },
+                    { method: "POST", body: form },
                     "Avatar updated.",
                   );
+                  setFile(null);
                 })
               }
             >
-              {presetImage(key) ? (
-                <img src={presetImage(key)} alt="" />
-              ) : (
-                <span>{user.displayName.slice(0, 1).toUpperCase()}</span>
-              )}
-              <small>{key === "initials" ? "Initials" : key}</small>
+              Save uploaded avatar
             </button>
-          ))}
-        </div>
-        <label>
-          Upload profile image
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={(e) => {
-              const f = e.target.files[0];
-              setError("");
-              if (f && f.size > 2 * 1024 * 1024) {
-                setError("Choose an image up to 2 MB.");
-                setFile(null);
-                e.target.value = "";
-              } else setFile(f || null);
-            }}
-          />
-        </label>
-        <p className="group-help">
-          JPG, PNG or WebP, up to 2 MB and 16 megapixels. Images are cropped
-          from the center to a 1:1 square.
-        </p>
-        {(preview || user.avatarUrl) && (
-          <img
-            className="profile-preview"
-            src={preview || user.avatarUrl}
-            alt="Square avatar preview"
-          />
-        )}
-        {file && (
-          <button
-            onClick={() =>
-              action(async () => {
-                const form = new FormData();
-                form.append("avatar", file);
-                await save(
-                  "/profile/avatar",
-                  { method: "POST", body: form },
-                  "Avatar updated.",
-                );
-                setFile(null);
-              })
-            }
-          >
-            Save uploaded avatar
-          </button>
-        )}
-      </fieldset>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          action(() =>
-            save(
-              "/profile/username",
-              { method: "PATCH", body: JSON.stringify({ username }) },
-              "Username updated.",
-            ),
-          );
-        }}
-      >
-        <fieldset disabled={busy}>
-          <legend>
-            <AtSign size={17} /> Username
-          </legend>
-          <label>
-            Username
-            <input
-              autoComplete="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              minLength={3}
-              maxLength={24}
-              pattern="[A-Za-z0-9_]{3,24}"
-            />
-          </label>
-          <p className="group-help">
-            3–24 letters, numbers or underscores. Usernames are lowercase and
-            must be unique. Your chats stay with your account.
-          </p>
-          <button type="submit">Save username</button>
+          )}
         </fieldset>
-      </form>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          const values = Object.fromEntries(new FormData(e.currentTarget));
-          action(async () => {
-            if (values.newPassword !== values.confirmPassword)
-              throw new Error("New passwords do not match.");
-            await post("/profile/password", {
-              currentPassword: values.currentPassword,
-              newPassword: values.newPassword,
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            action(() =>
+              save(
+                "/profile/username",
+                { method: "PATCH", body: JSON.stringify({ username }) },
+                "Username updated.",
+              ),
+            );
+          }}
+        >
+          <fieldset disabled={busy}>
+            <legend>
+              <AtSign size={17} /> Username
+            </legend>
+            <label>
+              Username
+              <input
+                autoComplete="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                minLength={3}
+                maxLength={24}
+                pattern="[A-Za-z0-9_]{3,24}"
+              />
+            </label>
+            <p className="group-help">
+              3–24 letters, numbers or underscores. Usernames are lowercase and
+              must be unique. Your chats stay with your account.
+            </p>
+            <button type="submit">Save username</button>
+          </fieldset>
+        </form>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const values = Object.fromEntries(new FormData(e.currentTarget));
+            action(async () => {
+              if (values.newPassword !== values.confirmPassword)
+                throw new Error("New passwords do not match.");
+              await post("/profile/password", {
+                currentPassword: values.currentPassword,
+                newPassword: values.newPassword,
+              });
+              onLogout();
             });
-            onLogout();
-          });
-        }}
-      >
-        <fieldset disabled={busy}>
-          <legend>
-            <ShieldCheck size={17} /> Password & security
-          </legend>
-          <label>
-            Current password
-            <input
-              type="password"
-              name="currentPassword"
-              autoComplete="current-password"
-              required
-            />
-          </label>
-          <label>
-            New password
-            <input
-              type="password"
-              name="newPassword"
-              autoComplete="new-password"
-              minLength={8}
-              required
-            />
-          </label>
-          <label>
-            Confirm new password
-            <input
-              type="password"
-              name="confirmPassword"
-              autoComplete="new-password"
-              minLength={8}
-              required
-            />
-          </label>
-          <p className="group-help">
-            Use at least 8 characters (maximum 72 UTF-8 bytes). Changing your
-            password signs you out on all devices. Sign in again with the new
-            password.
-          </p>
-          <button type="submit">Change password and sign out</button>
-        </fieldset>
-      </form>
+          }}
+        >
+          <fieldset disabled={busy}>
+            <legend>
+              <ShieldCheck size={17} /> Password & security
+            </legend>
+            <label>
+              Current password
+              <input
+                type="password"
+                name="currentPassword"
+                autoComplete="current-password"
+                required
+              />
+            </label>
+            <label>
+              New password
+              <input
+                type="password"
+                name="newPassword"
+                autoComplete="new-password"
+                minLength={8}
+                required
+              />
+            </label>
+            <label>
+              Confirm new password
+              <input
+                type="password"
+                name="confirmPassword"
+                autoComplete="new-password"
+                minLength={8}
+                required
+              />
+            </label>
+            <p className="group-help">
+              Use at least 8 characters (maximum 72 UTF-8 bytes). Changing your
+              password signs you out on all devices. Sign in again with the new
+              password.
+            </p>
+            <button type="submit">Change password and sign out</button>
+          </fieldset>
+        </form>
+      </section>
     </dialog>
   );
 }

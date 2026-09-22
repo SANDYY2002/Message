@@ -293,3 +293,7 @@ Click **Enable sound** beside the notification controls. It plays a short previe
 Keep Message open and connected. After a reload, click or type in the app once to let the browser unlock audio. Muted tabs, device volume, browser restrictions and suspended/closed pages can prevent sound. System banners are silent so they do not play a second sound over the app chime.
 
 Profile settings includes six built-in illustrated avatars and initials, plus your own square photo upload. Username uniqueness and current-password verification remain enforced by the server.
+
+## Settings menu
+
+Click **Settings** in the sidebar. **Profile & account** contains avatar selection/upload, username and password changes. **Notifications & sound** contains browser alerts, the sound toggle and Test sound. Closing Settings keeps message alerts and sounds running.

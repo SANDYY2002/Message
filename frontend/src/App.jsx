@@ -18,6 +18,7 @@ import {
   Search,
   Send,
   ShieldCheck,
+  Settings,
   Sun,
   Video,
   Users,
@@ -339,6 +340,7 @@ function Auth({ onLogin, theme, setTheme }) {
 }
 function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
   const [profileOpen, setProfileOpen] = useState(false);
+  const [notificationTarget, setNotificationTarget] = useState(null);
   const [callSocket, setCallSocket] = useState(null);
   const [groupDialog, setGroupDialog] = useState(null);
   const [conversations, setConversations] = useState([]),
@@ -691,12 +693,13 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
           </span>
         </header>
         <button className="profile-open" onClick={() => setProfileOpen(true)}>
-          <Avatar user={user} />
+          <Settings size={20} />
           <span>
-            Profile settings<small>@{user.username}</small>
+            Settings<small>@{user.username}</small>
           </span>
         </button>
         <Notifications
+          settingsTarget={notificationTarget}
           socket={callSocket}
           user={user}
           activeId={activeId}
@@ -1122,6 +1125,7 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
       {profileOpen && (
         <Profile
           user={user}
+          notificationHost={setNotificationTarget}
           onUpdate={onUserChange}
           onLogout={onLogout}
           close={() => setProfileOpen(false)}

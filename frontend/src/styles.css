@@ -2246,3 +2246,44 @@ button:active:not(:disabled) {
     margin-inline: 16px;
   }
 }
+
+.settings-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 5px;
+  margin: 0 0 22px;
+  background: var(--surface-soft);
+  border-radius: 13px;
+}
+.profile-dialog .settings-tabs button {
+  flex: 1;
+  padding: 11px 8px;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+}
+.profile-dialog .settings-tabs button[aria-selected="true"] {
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: 0 2px 8px #0000000a;
+}
+.profile-dialog .notification-settings {
+  margin: 20px 0;
+  padding: 18px;
+}
+.profile-dialog .notification-controls {
+  gap: 10px;
+}
+.profile-dialog .notification-controls button {
+  font-size: 13px;
+}
+.profile-dialog section > h3 {
+  font-size: 18px;
+}
+.profile-dialog section > p[role="status"] {
+  padding: 12px 16px;
+  background: var(--accent-light);
+  color: var(--accent);
+  border-radius: 12px;
+}

@@ -12,8 +12,8 @@ test("profile settings save a square avatar and username, then change password",
   await page.getByRole("textbox", { name: "Username" }).fill(username);
   await page.getByLabel("Password", { exact: true }).fill("safe-password-123");
   await page.locator(".auth-submit").click();
-  await page.getByRole("button", { name: /Profile settings/ }).click();
-  const dialog = page.getByRole("dialog", { name: "Profile settings" });
+  await page.getByRole("button", { name: /^Settings/ }).click();
+  const dialog = page.getByRole("dialog", { name: "Settings" });
   await dialog
     .getByRole("button", { name: "Use fox avatar", exact: true })
     .click();
@@ -51,10 +51,10 @@ test("profile settings save a square avatar and username, then change password",
   await dialog.getByLabel("Username", { exact: true }).fill(`new_${username}`);
   await dialog.getByRole("button", { name: "Save username" }).click();
   await expect(dialog.getByRole("status")).toHaveText("Username updated.");
-  await dialog.getByRole("button", { name: "Close profile" }).click();
+  await dialog.getByRole("button", { name: "Close settings" }).click();
   await page.reload();
   await expect(page.locator(".profile-open")).toContainText(`@new_${username}`);
-  await page.getByRole("button", { name: /Profile settings/ }).click();
+  await page.getByRole("button", { name: /^Settings/ }).click();
   await dialog.getByLabel("Current password", { exact: true }).fill("wrong");
   await dialog
     .getByLabel("New password", { exact: true })
