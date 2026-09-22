@@ -659,7 +659,7 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
   );
   return (
     <main className={`chat-shell ${selected ? "conversation-open" : ""}`}>
-      <aside className="rail">
+      <nav className="rail" aria-label="Main navigation">
         <div className="rail-logo">
           <MessageCircle size={24} />
         </div>
@@ -671,6 +671,16 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
           <MessageCircle size={22} />
         </button>
         <div className="rail-bottom">
+          <button
+            className="icon-button nav-settings"
+            aria-label="Settings"
+            title="Settings"
+            aria-haspopup="dialog"
+            aria-expanded={profileOpen}
+            onClick={() => setProfileOpen(true)}
+          >
+            <Settings size={21} />
+          </button>
           <ThemeButton theme={theme} setTheme={setTheme} />
           <button
             className="icon-button"
@@ -683,7 +693,7 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
           </button>
           <Avatar user={user} />
         </div>
-      </aside>
+      </nav>
       <aside className="sidebar">
         <header className="sidebar-header">
           <Brand />
@@ -692,12 +702,6 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
             {connected ? "Connected" : "Reconnecting"}
           </span>
         </header>
-        <button className="profile-open" onClick={() => setProfileOpen(true)}>
-          <Settings size={20} />
-          <span>
-            Settings<small>@{user.username}</small>
-          </span>
-        </button>
         <Notifications
           settingsTarget={notificationTarget}
           socket={callSocket}

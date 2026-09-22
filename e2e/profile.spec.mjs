@@ -12,6 +12,11 @@ test("profile settings save a square avatar and username, then change password",
   await page.getByRole("textbox", { name: "Username" }).fill(username);
   await page.getByLabel("Password", { exact: true }).fill("safe-password-123");
   await page.locator(".auth-submit").click();
+  await expect(
+    page
+      .getByRole("navigation", { name: "Main navigation" })
+      .getByRole("button", { name: "Settings", exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: /^Settings/ }).click();
   const dialog = page.getByRole("dialog", { name: "Settings" });
   await dialog
@@ -25,6 +30,12 @@ test("profile settings save a square avatar and username, then change password",
     "/avatars/fox.svg",
   );
   await page.setViewportSize({ width: 390, height: 844 });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Close settings" }).click();
+  await page
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("button", { name: "Settings", exact: true })
+    .click();
   await expect(dialog).toBeVisible();
   expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
     true,
@@ -53,7 +64,7 @@ test("profile settings save a square avatar and username, then change password",
   await expect(dialog.getByRole("status")).toHaveText("Username updated.");
   await dialog.getByRole("button", { name: "Close settings" }).click();
   await page.reload();
-  await expect(page.locator(".profile-open")).toContainText(`@new_${username}`);
+  await expect(page.locator(".profile")).toContainText(`@new_${username}`);
   await page.getByRole("button", { name: /^Settings/ }).click();
   await dialog.getByLabel("Current password", { exact: true }).fill("wrong");
   await dialog
@@ -80,5 +91,5 @@ test("profile settings save a square avatar and username, then change password",
     .getByLabel("Password", { exact: true })
     .fill("changed-password-123");
   await page.locator(".auth-submit").click();
-  await expect(page.locator(".profile-open")).toContainText(`@new_${username}`);
+  await expect(page.locator(".profile")).toContainText(`@new_${username}`);
 });

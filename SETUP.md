@@ -297,3 +297,5 @@ Profile settings includes six built-in illustrated avatars and initials, plus yo
 ## Settings menu
 
 Click **Settings** in the sidebar. **Profile & account** contains avatar selection/upload, username and password changes. **Notifications & sound** contains browser alerts, the sound toggle and Test sound. Closing Settings keeps message alerts and sounds running.
+
+The **Settings** gear is in the left navigation panel on desktop. On mobile, the same navigation controls appear in a bottom bar, accessible from both the inbox and an open chat.
