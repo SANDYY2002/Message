@@ -33,7 +33,7 @@ test("create a group, exchange messages, show sender names and remove a member",
     await dialog
       .getByLabel("Group name", { exact: true })
       .fill("Weekend plans");
-    for (const person of ["groupbob", "groupcarol"]) {
+    for (const person of ["groupbob"]) {
       await dialog
         .getByRole("textbox", { name: "Search group members" })
         .fill(`${person}_${suffix}`);
@@ -43,7 +43,7 @@ test("create a group, exchange messages, show sender names and remove a member",
         .click();
     }
     await dialog
-      .getByRole("button", { name: "Create group (3)", exact: true })
+      .getByRole("button", { name: "Create group (2)", exact: true })
       .click();
     await expect(
       a.getByRole("heading", { name: "Weekend plans", exact: true }),
@@ -74,6 +74,24 @@ test("create a group, exchange messages, show sender names and remove a member",
     await expect(
       a.locator(".group-sender").getByText("groupbob", { exact: true }),
     ).toBeVisible();
+    await a.getByRole("button", { name: "Group details", exact: true }).click();
+    const addDialog = a.getByRole("dialog", {
+      name: "Group details",
+      exact: true,
+    });
+    await addDialog
+      .getByRole("textbox", { name: "Search group members" })
+      .fill(`groupcarol_${suffix}`);
+    await addDialog
+      .locator(".group-candidates")
+      .getByRole("button", { name: /groupcarol/ })
+      .click();
+    await expect(addDialog.locator(".group-members")).toContainText(
+      "groupcarol",
+    );
+    await addDialog
+      .getByRole("button", { name: "Close group", exact: true })
+      .click();
     await a.getByRole("button", { name: "Group details", exact: true }).click();
     const details = a.getByRole("dialog", {
       name: "Group details",

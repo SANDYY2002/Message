@@ -178,8 +178,8 @@ export default function Groups({
         </>
       ) : (
         <p className="group-help">
-          Choose at least two people. Up to 50 members, including you. Added
-          members can read this group’s history.
+          Choose at least one other person. Up to 50 members, including you.
+          Added members can read this group’s history.
         </p>
       )}
       {(!conversation || owner) && (
@@ -207,6 +207,22 @@ export default function Groups({
                 </button>
               ))}
             </div>
+          )}
+          {candidates.length === 0 && (
+            <p className="group-help">
+              {search
+                ? "No users match that search."
+                : "No other users are available. Ask another person to register first."}
+            </p>
+          )}
+          {!conversation && (
+            <p className="group-help">
+              {!name.trim()
+                ? "Enter a group name."
+                : chosen.length === 0
+                  ? "Select at least one person below to create your group."
+                  : `${chosen.length} selected · You are included automatically.`}
+            </p>
           )}
           <div className="group-candidates">
             {candidates.map((p) => (
@@ -248,7 +264,7 @@ export default function Groups({
           {!conversation && (
             <button
               className="group-create"
-              disabled={busy || !name.trim() || chosen.length < 2}
+              disabled={busy || !name.trim() || chosen.length < 1}
               onClick={() =>
                 action(async () => {
                   const d = await post("/groups", {

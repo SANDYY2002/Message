@@ -276,8 +276,12 @@ Keep Message open and connected to receive these alerts. The notification worker
 
 After pulling `main`, run `npm run db:migrate` before restarting. Migration 4 adds group metadata and memberships while keeping existing direct conversations and messages intact. Keep the API on port 4000.
 
-Click **New group** above the conversation list, enter a name, choose at least two other registered users, and click **Create group**. Groups support up to 50 members and use the same text, image/video uploads, search, message editing/deletion and notification features as direct chats. Sender names identify each participant. Unread counts are tracked separately for each member; group messages show Sent rather than individual Read receipts.
+Click **New group** above the conversation list, enter a name, choose at least one other registered user, and click **Create group**. Groups support up to 50 members and use the same text, image/video uploads, search, message editing/deletion and notification features as direct chats. Sender names identify each participant. Unread counts are tracked separately for each member; group messages show Sent rather than individual Read receipts.
 
 Open **Group details** in the chat header to see members. The creator is the owner and can rename the group, add/remove people, or transfer ownership to an existing member. Other members can leave. Owners must transfer ownership before leaving. Added members can read all existing group history. Removing/leaving revokes future access to history, search, downloads and messaging; it cannot erase copies already downloaded. Removed users stop receiving group message events and the chat disappears from their list.
 
 Voice and video calls currently work only in direct conversations; this update does not add group calls.
+
+## Profile settings update
+
+Stop the development server, pull main, run `npm ci` and `npm run db:migrate`, then restart using `npm run dev`. Open **Profile settings** in the sidebar for avatar selection, square image uploads, unique username changes and password changes. Changing your password signs out all devices.

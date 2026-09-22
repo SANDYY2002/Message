@@ -1,3 +1,5 @@
+import { mountProfile } from "./profile.js";
+import { publicUser } from "./users.js";
 import { mountGroups } from "./groups.js";
 import { mountCalls } from "./calls.js";
 import express from "express";
@@ -92,9 +94,17 @@ export async function createApp(io) {
     const valid = await bcrypt.compare(password, u?.password_hash || dummyHash);
     if (!u || !valid)
       throw new HttpError(401, "Incorrect username or password.");
-    await issueSession(res, u.id);
+    await transaction(async (q) => {
+      const [current] = await q(
+        "SELECT password_hash FROM users WHERE id=? FOR UPDATE",
+        [u.id],
+      );
+      if (current.password_hash !== u.password_hash)
+        throw new HttpError(401, "Password changed. Please sign in again.");
+      await issueSession(res, u.id, q);
+    });
     res.json({
-      user: { id: u.id, username: u.username, displayName: u.display_name },
+      user: publicUser(u),
     });
   });
   app.use("/api", requireAuth);
@@ -109,6 +119,7 @@ export async function createApp(io) {
   });
   mountMessageManagement(app, io, limiter);
   mountGroups(app, io, limiter);
+  mountProfile(app, io, limiter);
   app.get("/api/users", async (req, res) => {
     const search = String(req.query.q || "")
       .trim()
@@ -116,15 +127,15 @@ export async function createApp(io) {
       .slice(0, 60);
     // LOCATE treats user input literally, including % and _.
     const users = await query(
-      "SELECT id,username,display_name AS displayName FROM users WHERE id<>? AND (LOCATE(?,username)>0 OR LOCATE(?,LOWER(display_name))>0) ORDER BY username LIMIT 30",
+      "SELECT id,username,display_name,avatar_preset,avatar_path,avatar_revision FROM users WHERE id<>? AND (LOCATE(?,username)>0 OR LOCATE(?,LOWER(display_name))>0) ORDER BY username LIMIT 30",
       [req.auth.user.id, search, search],
     );
-    res.json({ users });
+    res.json({ users: users.map(publicUser) });
   });
   app.get("/api/conversations", async (req, res) => {
     const uid = req.auth.user.id;
     const rows = await query(
-      `SELECT c.*,u.id AS peer_id,u.username,u.display_name,
+      `SELECT c.*,u.id AS peer_id,u.username,u.display_name,u.avatar_preset,u.avatar_path,u.avatar_revision,
    (SELECT COUNT(*) FROM group_members g WHERE g.conversation_id=c.id) AS member_count,
    (SELECT COUNT(*) FROM messages m WHERE m.conversation_id=c.id AND m.sender_id<>? AND m.deleted_at IS NULL AND m.id>IF(c.kind='group',gm.read_id,IF(c.user_low=?,c.low_read_id,c.high_read_id))) AS unread,
    (SELECT m.id FROM messages m WHERE m.conversation_id=c.id ORDER BY m.id DESC LIMIT 1) AS last_id,
@@ -146,6 +157,14 @@ export async function createApp(io) {
           id: c.kind === "group" ? c.id : c.peer_id,
           username: c.kind === "group" ? "group" : c.username,
           displayName: c.kind === "group" ? c.name : c.display_name,
+          ...(c.kind === "group"
+            ? {}
+            : {
+                avatarPreset: c.avatar_preset,
+                avatarUrl: c.avatar_path
+                  ? `/api/avatars/${c.peer_id}?v=${c.avatar_revision}`
+                  : null,
+              }),
         },
         unread: Number(c.unread),
         peerReadId:

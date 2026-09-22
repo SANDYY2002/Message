@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { pool } from "./db.js";
 import { fileURLToPath } from "node:url";
-export const LATEST_SCHEMA_VERSION = 4;
+export const LATEST_SCHEMA_VERSION = 5;
 export async function migrate() {
   const conn = await pool.getConnection();
   try {
@@ -101,6 +101,25 @@ export async function migrate() {
         FOREIGN KEY(user_id) REFERENCES users(id)
       ) ENGINE=InnoDB`);
       await conn.query("INSERT INTO schema_migrations(version) VALUES(4)");
+    }
+    const [v5] = await conn.query(
+      "SELECT version FROM schema_migrations WHERE version=5",
+    );
+    if (!v5.length) {
+      const [columns] = await conn.query(
+        "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users'",
+      );
+      const names = new Set(columns.map((c) => c.COLUMN_NAME));
+      for (const [name, definition] of [
+        ["avatar_preset", "VARCHAR(20) NOT NULL DEFAULT 'initials'"],
+        ["avatar_path", "VARCHAR(80) NULL"],
+        ["avatar_revision", "INT UNSIGNED NOT NULL DEFAULT 0"],
+      ])
+        if (!names.has(name))
+          await conn.query(
+            `ALTER TABLE users ADD COLUMN ${name} ${definition}`,
+          );
+      await conn.query("INSERT INTO schema_migrations(version) VALUES(5)");
     }
   } finally {
     await conn.query("SELECT RELEASE_LOCK('message_schema_migration')");

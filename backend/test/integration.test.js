@@ -953,3 +953,149 @@ test("groups restrict messages, media, search and management to current members"
     404,
   );
 });
+
+test("profile avatars, unique usernames and password session revocation", async () => {
+  const person = await register("profile");
+  const patch = (route, body) =>
+    request(route, { user: person, method: "PATCH", body });
+  assert.equal(
+    (await patch("/profile/username", { username: bob.username.toUpperCase() }))
+      .res.status,
+    409,
+  );
+  assert.equal(
+    (await patch("/profile/username", { username: "bad name" })).res.status,
+    400,
+  );
+  const renamed = `renamed_${Date.now().toString().slice(-8)}`;
+  const changed = await patch("/profile/username", {
+    username: renamed.toUpperCase(),
+  });
+  assert.equal(changed.data.user.username, renamed);
+  assert.equal(changed.data.user.id, person.id);
+  assert.equal(
+    (await patch("/profile/avatar", { preset: "fox" })).data.user.avatarPreset,
+    "fox",
+  );
+  assert.equal(
+    (await patch("/profile/avatar", { preset: "../bad" })).res.status,
+    400,
+  );
+  const sharp = (await import("sharp")).default;
+  const input = await sharp({
+    create: { width: 600, height: 300, channels: 3, background: "red" },
+  })
+    .png()
+    .toBuffer();
+  const form = new FormData();
+  form.append("avatar", new Blob([input], { type: "image/png" }), "photo.png");
+  const uploaded = await request("/profile/avatar", { user: person, form });
+  assert.equal(uploaded.res.status, 200, JSON.stringify(uploaded.data));
+  const url = uploaded.data.user.avatarUrl;
+  assert.equal((await fetch(base + url)).status, 401);
+  const response = await fetch(base + url, { headers: { Cookie: bob.cookie } });
+  const meta = await sharp(
+    Buffer.from(await response.arrayBuffer()),
+  ).metadata();
+  assert.equal(meta.width, 256);
+  assert.equal(meta.height, 256);
+  assert.equal(meta.format, "webp");
+  const fake = new FormData();
+  fake.append(
+    "avatar",
+    new Blob(["<svg></svg>"], { type: "image/png" }),
+    "fake.png",
+  );
+  assert.equal(
+    (await request("/profile/avatar", { user: person, form: fake })).res.status,
+    400,
+  );
+  const oversized = new FormData();
+  oversized.append(
+    "avatar",
+    new Blob([Buffer.alloc(2 * 1024 * 1024 + 1)]),
+    "large.png",
+  );
+  assert.equal(
+    (await request("/profile/avatar", { user: person, form: oversized })).res
+      .status,
+    413,
+  );
+  assert.equal(
+    (await patch("/profile/avatar", { preset: "initials" })).data.user
+      .avatarUrl,
+    null,
+  );
+  assert.equal(
+    (await fetch(base + url, { headers: { Cookie: bob.cookie } })).status,
+    404,
+  );
+  const secondLogin = await request("/auth/login", {
+    body: { username: renamed, password: "safe-password-123" },
+  });
+  const secondSession = {
+    cookie: secondLogin.res.headers.get("set-cookie").split(";")[0],
+  };
+  assert.equal(
+    (
+      await request("/profile/password", {
+        user: person,
+        body: {
+          currentPassword: "wrong",
+          newPassword: "new-safe-password-123",
+        },
+      })
+    ).res.status,
+    400,
+  );
+  assert.equal((await request("/auth/me", { user: person })).res.status, 200);
+  assert.equal(
+    (
+      await request("/profile/password", {
+        user: person,
+        body: {
+          currentPassword: "safe-password-123",
+          newPassword: "new-safe-password-123",
+        },
+      })
+    ).res.status,
+    204,
+  );
+  for (const user of [person, secondSession])
+    assert.equal((await request("/auth/me", { user })).res.status, 401);
+  assert.equal(
+    (
+      await request("/auth/login", {
+        body: { username: renamed, password: "safe-password-123" },
+      })
+    ).res.status,
+    401,
+  );
+  assert.equal(
+    (
+      await request("/auth/login", {
+        body: { username: renamed, password: "new-safe-password-123" },
+      })
+    ).res.status,
+    200,
+  );
+});
+
+test("groups can start with one other member but cannot be empty", async () => {
+  const created = await request("/groups", {
+    user: eve,
+    body: { name: "Small group", userIds: [bob.id] },
+  });
+  assert.equal(created.res.status, 201, JSON.stringify(created.data));
+  const details = await request(`/groups/${created.data.id}`, { user: bob });
+  assert.equal(details.data.members.length, 2);
+  assert.equal(
+    (
+      await request("/groups", {
+        user: eve,
+        body: { name: "Empty", userIds: [eve.id] },
+      })
+    ).res.status,
+    400,
+  );
+});

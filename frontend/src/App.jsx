@@ -1,3 +1,4 @@
+import Profile, { avatarPresets } from "./components/Profile";
 import Groups from "./components/Groups";
 import Notifications from "./components/Notifications";
 import Calls from "./components/Calls";
@@ -42,7 +43,14 @@ const shade = (u) => ["mint", "amber", "purple", "blue"][u.id % 4];
 function Avatar({ user, online = false, large = false }) {
   return (
     <span className={`avatar ${shade(user)} ${large ? "large" : ""}`}>
-      {initial(user)}
+      {user.avatarUrl ? (
+        <img src={user.avatarUrl} alt="" />
+      ) : avatarPresets[user.avatarPreset] &&
+        user.avatarPreset !== "initials" ? (
+        avatarPresets[user.avatarPreset]
+      ) : (
+        initial(user)
+      )}
       {online && <i />}
     </span>
   );
@@ -129,6 +137,7 @@ export default function App() {
     try {
       const d = await api("/auth/me");
       setMaxUpload(d.maxUploadBytes);
+      setUser(d.user);
     } catch {}
   }
   if (loading)
@@ -153,6 +162,7 @@ export default function App() {
     <Chat
       key={user.id}
       user={user}
+      onUserChange={setUser}
       maxUpload={maxUpload}
       onLogout={() => setUser(null)}
       theme={theme}
@@ -328,7 +338,8 @@ function Auth({ onLogin, theme, setTheme }) {
     </main>
   );
 }
-function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
+function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
+  const [profileOpen, setProfileOpen] = useState(false);
   const [callSocket, setCallSocket] = useState(null);
   const [groupDialog, setGroupDialog] = useState(null);
   const [conversations, setConversations] = useState([]),
@@ -445,6 +456,13 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
         d.online ? n.add(d.userId) : n.delete(d.userId);
         return n;
       }),
+    );
+    s.on("user:updated", (updated) => {
+      if (updated.id === user.id) onUserChange(updated);
+      refreshList();
+    });
+    s.on("session:revoked", () =>
+      window.dispatchEvent(new Event("session-expired")),
     );
     s.on("conversation:changed", refreshList);
     s.on("conversation:removed", ({ conversationId }) => {
@@ -673,6 +691,12 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
             {connected ? "Connected" : "Reconnecting"}
           </span>
         </header>
+        <button className="profile-open" onClick={() => setProfileOpen(true)}>
+          <Avatar user={user} />
+          <span>
+            Profile settings<small>@{user.username}</small>
+          </span>
+        </button>
         <Notifications
           socket={callSocket}
           user={user}
@@ -1094,6 +1118,14 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
           userId={user.id}
           changeKey={messageChange}
           onClose={() => setSearchOpen(false)}
+        />
+      )}
+      {profileOpen && (
+        <Profile
+          user={user}
+          onUpdate={onUserChange}
+          onLogout={onLogout}
+          close={() => setProfileOpen(false)}
         />
       )}
       {groupDialog && (

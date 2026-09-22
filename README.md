@@ -82,3 +82,13 @@ Conversation search uses literal, case-insensitive matching over non-deleted tex
 ### Calling
 
 One-to-one voice/video calls use WebRTC with authenticated Socket.IO signaling. Calls include accept/decline, microphone mute, camera toggle, hangup, and persisted call history. Run `npm run db:migrate` after updating. See [calling setup](SETUP.md#voice-and-video-calls) for HTTPS, permissions, and TURN configuration. The default API port is `4000`; existing private `.env` files must be updated manually.
+
+### Profile settings
+
+Open **Profile settings** in the conversation sidebar. Choose an avatar preset or upload a JPG, PNG or WebP (2 MB maximum, 16 megapixels maximum). The preview shows the center square crop; the server saves a 256×256 WebP image. Avatar access requires signing in. Changing to a preset removes the old uploaded image.
+
+Usernames can be changed to an available name (3–24 lowercase letters, numbers or underscores); account ID, messages and group membership are preserved. Password changes require the current password and sign out all sessions. Sign in again with the new password.
+
+After pulling this update, stop the app, run `npm ci` and `npm run db:migrate`, then restart with `npm run dev`. Migration 5 adds profile fields without resetting accounts or messages.
+
+Groups can start with you and **one other registered user**. Enter a name, select a person, then click **Create group (2)**. The owner can add more members later, up to 50 total. If no people appear, another account must register first (or clear the search).

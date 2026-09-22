@@ -21,12 +21,12 @@ export function mountGroups(app, io, limiter) {
     const name = groupName(req.body?.name),
       uid = req.auth.user.id;
     if (!Array.isArray(req.body?.userIds) || req.body.userIds.length > 49)
-      throw new HttpError(400, "Choose 2–49 other people.");
+      throw new HttpError(400, "Choose 1–49 other people.");
     const users = [...new Set(req.body.userIds.map(id))].filter(
       (x) => x !== uid,
     );
-    if (users.length < 2)
-      throw new HttpError(400, "Choose at least two other people.");
+    if (users.length < 1)
+      throw new HttpError(400, "Choose at least one other person.");
     const c = await transaction(async (q) => {
       const rows = await q(
         `SELECT id FROM users WHERE id IN (${users.map(() => "?").join(",")})`,

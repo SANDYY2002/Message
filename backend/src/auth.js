@@ -1,3 +1,4 @@
+import { publicUser } from "./users.js";
 import { createHash, randomBytes } from "node:crypto";
 import { parse, serialize } from "cookie";
 import { query } from "./db.js";
@@ -20,13 +21,13 @@ export async function authenticate(headers) {
   const hash = sessionHash(headers);
   if (!hash) throw new HttpError(401, "Please sign in.");
   const [row] = await query(
-    "SELECT u.id,u.username,u.display_name,s.expires_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE token_hash=? AND expires_at>UTC_TIMESTAMP(3)",
+    "SELECT u.id,u.username,u.display_name,u.avatar_preset,u.avatar_path,u.avatar_revision,s.expires_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE token_hash=? AND expires_at>UTC_TIMESTAMP(3)",
     [hash],
   );
   if (!row)
     throw new HttpError(401, "Your session expired. Please sign in again.");
   return {
-    user: { id: row.id, username: row.username, displayName: row.display_name },
+    user: publicUser(row),
     hash,
     expires: row.expires_at,
   };
@@ -39,10 +40,10 @@ export async function requireAuth(req, res, next) {
     next(e);
   }
 }
-export async function issueSession(res, userId) {
+export async function issueSession(res, userId, q = query) {
   const token = randomBytes(32).toString("hex");
   const hash = createHash("sha256").update(token).digest("hex");
-  await query(
+  await q(
     "INSERT INTO sessions (token_hash,user_id,expires_at) VALUES (?,?,?)",
     [hash, userId, new Date(Date.now() + config.sessionMs)],
   );
