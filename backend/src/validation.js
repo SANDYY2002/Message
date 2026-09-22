@@ -63,6 +63,7 @@ export function publicMessage(m) {
     id: m.id,
     conversationId: m.conversation_id,
     senderId: m.sender_id,
+    senderName: m.sender_name || null,
     clientId: m.client_id,
     text: m.deleted_at ? "" : m.text,
     editedAt: m.edited_at || null,

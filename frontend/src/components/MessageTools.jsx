@@ -16,6 +16,7 @@ export function MessageBubble({
   message: m,
   mine,
   readId,
+  showSender,
   onPreview,
   onImageLoad,
   onEdit,
@@ -27,6 +28,9 @@ export function MessageBubble({
       data-message-id={m.id}
     >
       <div className="message-bubble">
+        {showSender && !mine && (
+          <strong className="group-sender">{m.senderName || "Member"}</strong>
+        )}
         {m.deletedAt ? (
           <p className="deleted-message">Message deleted</p>
         ) : (
@@ -355,7 +359,9 @@ export function MessageSearch({ conversation, userId, changeKey, onClose }) {
                 <strong>
                   {m.senderId === userId
                     ? "You"
-                    : conversation.peer.displayName}
+                    : conversation.isGroup
+                      ? m.senderName || "Member"
+                      : conversation.peer.displayName}
                 </strong>
                 <span>{new Date(m.createdAt).toLocaleDateString()}</span>
               </div>

@@ -1,3 +1,4 @@
+import { mountGroups } from "./groups.js";
 import { mountCalls } from "./calls.js";
 import express from "express";
 import helmet from "helmet";
@@ -107,6 +108,7 @@ export async function createApp(io) {
     res.sendStatus(204);
   });
   mountMessageManagement(app, io, limiter);
+  mountGroups(app, io, limiter);
   app.get("/api/users", async (req, res) => {
     const search = String(req.query.q || "")
       .trim()
@@ -123,25 +125,35 @@ export async function createApp(io) {
     const uid = req.auth.user.id;
     const rows = await query(
       `SELECT c.*,u.id AS peer_id,u.username,u.display_name,
-   (SELECT COUNT(*) FROM messages m WHERE m.conversation_id=c.id AND m.sender_id<>? AND m.deleted_at IS NULL AND m.id>IF(c.user_low=?,c.low_read_id,c.high_read_id)) AS unread,
+   (SELECT COUNT(*) FROM group_members g WHERE g.conversation_id=c.id) AS member_count,
+   (SELECT COUNT(*) FROM messages m WHERE m.conversation_id=c.id AND m.sender_id<>? AND m.deleted_at IS NULL AND m.id>IF(c.kind='group',gm.read_id,IF(c.user_low=?,c.low_read_id,c.high_read_id))) AS unread,
    (SELECT m.id FROM messages m WHERE m.conversation_id=c.id ORDER BY m.id DESC LIMIT 1) AS last_id,
    (SELECT m.text FROM messages m WHERE m.conversation_id=c.id ORDER BY m.id DESC LIMIT 1) AS last_text,
    (SELECT m.media_mime FROM messages m WHERE m.conversation_id=c.id ORDER BY m.id DESC LIMIT 1) AS last_mime,
    (SELECT m.deleted_at FROM messages m WHERE m.conversation_id=c.id ORDER BY m.id DESC LIMIT 1) AS last_deleted
-   FROM conversations c JOIN users u ON u.id=IF(c.user_low=?,c.user_high,c.user_low)
-   WHERE c.user_low=? OR c.user_high=? ORDER BY c.updated_at DESC,c.id DESC LIMIT 200`,
-      [uid, uid, uid, uid, uid],
+   FROM conversations c LEFT JOIN users u ON u.id=IF(c.user_low=?,c.user_high,c.user_low)
+   LEFT JOIN group_members gm ON gm.conversation_id=c.id AND gm.user_id=?
+   WHERE c.user_low=? OR c.user_high=? OR gm.user_id IS NOT NULL ORDER BY c.updated_at DESC,c.id DESC LIMIT 200`,
+      [uid, uid, uid, uid, uid, uid],
     );
     res.json({
       conversations: rows.map((c) => ({
         id: c.id,
+        isGroup: c.kind === "group",
+        ownerId: c.owner_id,
+        memberCount: Number(c.member_count),
         peer: {
-          id: c.peer_id,
-          username: c.username,
-          displayName: c.display_name,
+          id: c.kind === "group" ? c.id : c.peer_id,
+          username: c.kind === "group" ? "group" : c.username,
+          displayName: c.kind === "group" ? c.name : c.display_name,
         },
         unread: Number(c.unread),
-        peerReadId: uid === c.user_low ? c.high_read_id : c.low_read_id,
+        peerReadId:
+          c.kind === "group"
+            ? 0
+            : uid === c.user_low
+              ? c.high_read_id
+              : c.low_read_id,
         lastMessage: c.last_id
           ? {
               id: c.last_id,
@@ -172,7 +184,9 @@ export async function createApp(io) {
         "SELECT * FROM conversations WHERE user_low=? AND user_high=?",
         [Math.min(uid, peer), Math.max(uid, peer)],
       );
-      emitConversation(io, c, "conversation:changed", { conversationId: c.id });
+      await emitConversation(io, c, "conversation:changed", {
+        conversationId: c.id,
+      });
       res.status(201).json({ id: c.id });
     },
   );
@@ -182,14 +196,19 @@ export async function createApp(io) {
       c = await member(cid, uid);
     const before = req.query.before ? id(req.query.before) : 4294967295;
     const rows = await query(
-      "SELECT * FROM messages WHERE conversation_id=? AND id<? ORDER BY id DESC LIMIT 51",
+      "SELECT m.*,u.display_name AS sender_name FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.conversation_id=? AND m.id<? ORDER BY m.id DESC LIMIT 51",
       [cid, before],
     );
     const hasMore = rows.length > 50;
     res.json({
       messages: rows.slice(0, 50).reverse().map(publicMessage),
       hasMore,
-      peerReadId: c.user_low === uid ? c.high_read_id : c.low_read_id,
+      peerReadId:
+        c.kind === "group"
+          ? 0
+          : c.user_low === uid
+            ? c.high_read_id
+            : c.low_read_id,
     });
   });
   app.post("/api/conversations/:id/read", async (req, res) => {
@@ -210,6 +229,13 @@ export async function createApp(io) {
           400,
           "Message does not belong to this conversation.",
         );
+      if (c.kind === "group") {
+        await q(
+          "UPDATE group_members SET read_id=GREATEST(read_id,?) WHERE conversation_id=? AND user_id=?",
+          [mid, cid, uid],
+        );
+        return c;
+      }
       const col = c.user_low === uid ? "low_read_id" : "high_read_id";
       await q(`UPDATE conversations SET ${col}=GREATEST(${col},?) WHERE id=?`, [
         mid,
@@ -217,7 +243,7 @@ export async function createApp(io) {
       ]);
       return c;
     });
-    emitConversation(io, c, "conversation:read", {
+    await emitConversation(io, c, "conversation:read", {
       conversationId: cid,
       userId: uid,
       messageId: mid,
@@ -283,6 +309,7 @@ export async function createApp(io) {
         const result = await transaction(async (q) => {
           // Serialize sends per sender to enforce quota and idempotency across conversations.
           await q("SELECT id FROM users WHERE id=? FOR UPDATE", [uid]);
+          await member(cid, uid, q, true);
           const [existing] = await q(
             "SELECT * FROM messages WHERE sender_id=? AND client_id=?",
             [uid, clientId],
@@ -326,9 +353,12 @@ export async function createApp(io) {
           return { message, created: true };
         });
         keepFile = result.created && !!req.file;
-        const message = publicMessage(result.message);
+        const message = publicMessage({
+          ...result.message,
+          sender_name: req.auth.user.displayName,
+        });
         if (result.created)
-          emitConversation(io, req.conversation, "message:new", message);
+          await emitConversation(io, req.conversation, "message:new", message);
         res.status(result.created ? 201 : 200).json({ message });
       } finally {
         if (req.file && !keepFile) await unlink(req.file.path).catch(() => {});

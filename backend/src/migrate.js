@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { pool } from "./db.js";
 import { fileURLToPath } from "node:url";
-export const LATEST_SCHEMA_VERSION = 3;
+export const LATEST_SCHEMA_VERSION = 4;
 export async function migrate() {
   const conn = await pool.getConnection();
   try {
@@ -70,6 +70,37 @@ export async function migrate() {
         FOREIGN KEY (callee_id) REFERENCES users(id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
       await conn.query("INSERT INTO schema_migrations(version) VALUES (3)");
+    }
+    const [v4] = await conn.query(
+      "SELECT version FROM schema_migrations WHERE version=4",
+    );
+    if (!v4.length) {
+      const [columns] = await conn.query(
+        "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='conversations'",
+      );
+      const names = new Set(columns.map((c) => c.COLUMN_NAME));
+      for (const [name, definition] of [
+        ["kind", "VARCHAR(10) NOT NULL DEFAULT 'direct'"],
+        ["name", "VARCHAR(60) NULL"],
+        ["owner_id", "INT UNSIGNED NULL"],
+      ]) {
+        if (!names.has(name))
+          await conn.query(
+            `ALTER TABLE conversations ADD COLUMN ${name} ${definition}`,
+          );
+      }
+      await conn.query(
+        "ALTER TABLE conversations MODIFY user_low INT UNSIGNED NULL, MODIFY user_high INT UNSIGNED NULL",
+      );
+      await conn.query(`CREATE TABLE IF NOT EXISTS group_members (
+        conversation_id INT UNSIGNED NOT NULL,
+        user_id INT UNSIGNED NOT NULL,
+        read_id INT UNSIGNED NOT NULL DEFAULT 0,
+        PRIMARY KEY (conversation_id,user_id), INDEX member_groups(user_id,conversation_id),
+        FOREIGN KEY(conversation_id) REFERENCES conversations(id),
+        FOREIGN KEY(user_id) REFERENCES users(id)
+      ) ENGINE=InnoDB`);
+      await conn.query("INSERT INTO schema_migrations(version) VALUES(4)");
     }
   } finally {
     await conn.query("SELECT RELEASE_LOCK('message_schema_migration')");

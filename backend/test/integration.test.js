@@ -767,3 +767,189 @@ test("calls enforce membership and device ownership, relay signals, and persist 
     false,
   );
 });
+
+test("groups restrict messages, media, search and management to current members", async () => {
+  const owner = await register("groupowner"),
+    first = await register("groupfirst"),
+    second = await register("groupsecond"),
+    outsider = await register("groupoutside");
+  const created = await request("/groups", {
+    user: owner,
+    body: { name: "Friends", userIds: [first.id, second.id] },
+  });
+  assert.equal(created.res.status, 201, JSON.stringify(created.data));
+  const cid = created.data.id;
+  assert.equal(
+    (
+      await request("/groups", {
+        user: owner,
+        body: { name: "", userIds: [first.id, second.id] },
+      })
+    ).res.status,
+    400,
+  );
+  assert.equal(
+    (await request(`/groups/${cid}`, { user: outsider })).res.status,
+    404,
+  );
+  assert.equal(
+    (
+      await request(`/groups/${cid}`, {
+        user: first,
+        method: "PATCH",
+        body: { name: "Hijacked" },
+      })
+    ).res.status,
+    403,
+  );
+  assert.equal(
+    (
+      await request(`/groups/${cid}/members/${owner.id}`, {
+        user: owner,
+        method: "DELETE",
+      })
+    ).res.status,
+    400,
+  );
+  const s = await socketFor(first);
+  if (!s.connected) await event(s, "connect");
+  const delivery = event(s, "message:new");
+  const sent = await request(`/conversations/${cid}/messages`, {
+    user: owner,
+    form: form("Group photo"),
+  });
+  assert.equal(sent.res.status, 201, JSON.stringify(sent.data));
+  const mid = sent.data.message.id;
+  assert.equal((await delivery).senderName, "groupowner");
+  assert.equal(
+    (await request(`/media/${mid}`, { user: first })).res.status,
+    200,
+  );
+  assert.equal(
+    (await request(`/media/${mid}`, { user: outsider })).res.status,
+    404,
+  );
+  assert.equal(
+    (await request(`/conversations/${cid}/search?q=photo`, { user: first }))
+      .data.messages.length,
+    1,
+  );
+  assert.equal(
+    (await request(`/conversations/${cid}/messages`, { user: outsider })).res
+      .status,
+    404,
+  );
+  const listed = await request("/conversations", { user: first });
+  const entry = listed.data.conversations.find((c) => c.id === cid);
+  assert.equal(entry.isGroup, true);
+  assert.equal(entry.memberCount, 3);
+  assert.equal(entry.unread, 1);
+  assert.equal(
+    (
+      await request(`/conversations/${cid}/read`, {
+        user: first,
+        body: { messageId: mid },
+      })
+    ).res.status,
+    204,
+  );
+  assert.equal(
+    (await request("/conversations", { user: first })).data.conversations.find(
+      (c) => c.id === cid,
+    ).unread,
+    0,
+  );
+  assert.equal(
+    (await request("/conversations", { user: second })).data.conversations.find(
+      (c) => c.id === cid,
+    ).unread,
+    1,
+  );
+  assert.equal(
+    (
+      await request(`/groups/${cid}/members`, {
+        user: owner,
+        body: { userId: outsider.id },
+      })
+    ).res.status,
+    204,
+  );
+  assert.equal(
+    (await request(`/conversations/${cid}/messages`, { user: outsider })).data
+      .messages[0].id,
+    mid,
+  );
+  const removed = event(s, "conversation:removed");
+  assert.equal(
+    (
+      await request(`/groups/${cid}/members/${first.id}`, {
+        user: owner,
+        method: "DELETE",
+      })
+    ).res.status,
+    204,
+  );
+  assert.equal((await removed).conversationId, cid);
+  for (const route of [
+    `/conversations/${cid}/messages`,
+    `/conversations/${cid}/search?q=photo`,
+    `/media/${mid}`,
+  ])
+    assert.equal((await request(route, { user: first })).res.status, 404);
+  assert.equal(
+    (
+      await request(`/conversations/${cid}/messages`, {
+        user: first,
+        form: form("Blocked"),
+      })
+    ).res.status,
+    404,
+  );
+  assert.equal(
+    (
+      await request(`/conversations/${cid}/messages/${mid}`, {
+        user: first,
+        method: "PATCH",
+        body: { text: "No", revision: 0 },
+      })
+    ).res.status,
+    404,
+  );
+  assert.equal(
+    (await request("/conversations", { user: first })).data.conversations.some(
+      (c) => c.id === cid,
+    ),
+    false,
+  );
+  const call = await new Promise((resolve) =>
+    s.emit("call:start", { conversationId: cid, kind: "voice" }, resolve),
+  );
+  assert.equal(call.ok, false);
+  assert.equal(
+    (
+      await request(`/groups/${cid}`, {
+        user: owner,
+        method: "PATCH",
+        body: { name: "Weekend friends", ownerId: second.id },
+      })
+    ).res.status,
+    204,
+  );
+  assert.equal(
+    (
+      await request(`/groups/${cid}/members/${owner.id}`, {
+        user: owner,
+        method: "DELETE",
+      })
+    ).res.status,
+    204,
+  );
+  assert.equal(
+    (await request(`/groups/${cid}`, { user: second })).data.ownerId,
+    second.id,
+  );
+  assert.equal(
+    (await request(`/groups/${cid}`, { user: owner })).res.status,
+    404,
+  );
+});

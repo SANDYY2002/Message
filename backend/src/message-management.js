@@ -16,7 +16,7 @@ export function mountMessageManagement(app, io, limiter) {
     const term = req.query.q.trim().toLowerCase();
     const before = req.query.before ? id(req.query.before) : 4294967295;
     const rows = await query(
-      "SELECT * FROM messages WHERE conversation_id=? AND deleted_at IS NULL AND id<? AND LOCATE(?,LOWER(text))>0 ORDER BY id DESC LIMIT 31",
+      "SELECT m.*,u.display_name AS sender_name FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.conversation_id=? AND m.deleted_at IS NULL AND m.id<? AND LOCATE(?,LOWER(m.text))>0 ORDER BY m.id DESC LIMIT 31",
       [cid, before, term],
     );
     const matches = rows.slice(0, 30);
@@ -67,8 +67,16 @@ export function mountMessageManagement(app, io, limiter) {
         ]);
         return { conversation, message: updated };
       });
-      const message = publicMessage(result.message);
-      emitConversation(io, result.conversation, "message:updated", message);
+      const message = publicMessage({
+        ...result.message,
+        sender_name: req.auth.user.displayName,
+      });
+      await emitConversation(
+        io,
+        result.conversation,
+        "message:updated",
+        message,
+      );
       res.json({ message });
     },
   );
@@ -93,8 +101,16 @@ export function mountMessageManagement(app, io, limiter) {
         ]);
         return { conversation, message: deleted };
       });
-      const message = publicMessage(result.message);
-      emitConversation(io, result.conversation, "message:updated", message);
+      const message = publicMessage({
+        ...result.message,
+        sender_name: req.auth.user.displayName,
+      });
+      await emitConversation(
+        io,
+        result.conversation,
+        "message:updated",
+        message,
+      );
       await drainMediaDeletions();
       res.json({ message });
     },

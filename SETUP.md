@@ -271,3 +271,13 @@ Click **Enable notifications** above the conversation list and allow notificatio
 New messages in other conversations produce an in-app alert. When the window is hidden or unfocused, enabled browser notifications show a generic notice without sender names, message text, or attachment previews. Clicking opens the conversation. The browser tab title also shows the unread count. Messages you send and messages in the actively focused conversation do not trigger alerts. Opening a conversation dismisses its system notifications; logout closes this account's notifications. Supported browsers use Web Locks to deduplicate alerts across tabs.
 
 Keep Message open and connected to receive these alerts. The notification worker only displays notifications and handles clicks; it does not cache private messages or subscribe to background push. Closing the browser, losing connectivity, or the OS suspending the tab stops new alerts until you reconnect. Existing unread counts still refresh on reconnect. OS Focus Assist / Do Not Disturb may suppress browser banners or sounds.
+
+## Group chats
+
+After pulling `main`, run `npm run db:migrate` before restarting. Migration 4 adds group metadata and memberships while keeping existing direct conversations and messages intact. Keep the API on port 4000.
+
+Click **New group** above the conversation list, enter a name, choose at least two other registered users, and click **Create group**. Groups support up to 50 members and use the same text, image/video uploads, search, message editing/deletion and notification features as direct chats. Sender names identify each participant. Unread counts are tracked separately for each member; group messages show Sent rather than individual Read receipts.
+
+Open **Group details** in the chat header to see members. The creator is the owner and can rename the group, add/remove people, or transfer ownership to an existing member. Other members can leave. Owners must transfer ownership before leaving. Added members can read all existing group history. Removing/leaving revokes future access to history, search, downloads and messaging; it cannot erase copies already downloaded. Removed users stop receiving group message events and the chat disappears from their list.
+
+Voice and video calls currently work only in direct conversations; this update does not add group calls.

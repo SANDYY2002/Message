@@ -356,7 +356,7 @@ export default function Calls({ socket, selected, user, connected }) {
   return (
     <>
       <div className="call-toolbar">
-        {selected && (
+        {selected && !selected.isGroup && (
           <>
             <button
               className="icon-button"

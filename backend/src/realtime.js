@@ -2,7 +2,7 @@ import { createCalls } from "./calls.js";
 import { authenticate } from "./auth.js";
 import { query } from "./db.js";
 import { id } from "./validation.js";
-import { member, otherUser } from "./chat.js";
+import { member, emitConversation } from "./chat.js";
 export function setupRealtime(io) {
   const online = new Map();
   const calls = createCalls(io);
@@ -43,7 +43,7 @@ export function setupRealtime(io) {
       try {
         const cid = id(data?.conversationId),
           c = await member(cid, user.id);
-        io.to(`user:${otherUser(c, user.id)}`).emit("typing", {
+        await emitConversation(io, c, "typing", {
           conversationId: cid,
           userId: user.id,
         });

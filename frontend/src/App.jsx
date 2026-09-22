@@ -1,3 +1,4 @@
+import Groups from "./components/Groups";
 import Notifications from "./components/Notifications";
 import Calls from "./components/Calls";
 import { useEffect, useRef, useState } from "react";
@@ -18,6 +19,7 @@ import {
   ShieldCheck,
   Sun,
   Video,
+  Users,
   X,
 } from "lucide-react";
 import { api, post, uploadMessage } from "./api";
@@ -328,6 +330,7 @@ function Auth({ onLogin, theme, setTheme }) {
 }
 function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
   const [callSocket, setCallSocket] = useState(null);
+  const [groupDialog, setGroupDialog] = useState(null);
   const [conversations, setConversations] = useState([]),
     [listLoading, setListLoading] = useState(true),
     [activeId, setActiveId] = useState(null),
@@ -444,6 +447,21 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
       }),
     );
     s.on("conversation:changed", refreshList);
+    s.on("conversation:removed", ({ conversationId }) => {
+      setConversations((old) => old.filter((c) => c.id !== conversationId));
+      drafts.current.delete(conversationId);
+      if (active.current === conversationId) {
+        active.current = null;
+        setActiveId(null);
+        setMessages([]);
+        setText("");
+        setFile(null);
+        setGroupDialog(null);
+        setSearchOpen(false);
+        setMessageAction(null);
+        setLightbox(null);
+      }
+    });
     s.on("message:updated", applyMessageUpdate);
     s.on("message:new", (m) => {
       refreshList();
@@ -459,7 +477,7 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
         setPeerReadId((prev) => Math.max(prev, d.messageId));
     });
     s.on("typing", (d) => {
-      if (d.conversationId === active.current) {
+      if (d.conversationId === active.current && d.userId !== user.id) {
         setTyping(true);
         clearTimeout(typingTimer.current);
         typingTimer.current = setTimeout(() => setTyping(false), 2500);
@@ -663,6 +681,13 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
           onOpen={select}
           sending={sending}
         />
+        <button
+          className="group-new"
+          disabled={sending}
+          onClick={() => setGroupDialog({ create: true })}
+        >
+          <Users size={17} /> New group
+        </button>
         <div className="inbox-heading">
           <div>
             <span className="small-label">YOUR EVERYDAY CONNECTIONS</span>
@@ -710,7 +735,10 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
                 className={`conversation ${c.id === activeId ? "selected" : ""}`}
                 onClick={() => select(c.id)}
               >
-                <Avatar user={c.peer} online={online.has(c.peer.id)} />
+                <Avatar
+                  user={c.peer}
+                  online={!c.isGroup && online.has(c.peer.id)}
+                />
                 <div className="conversation-copy">
                   <div className="conversation-title">
                     <strong>{c.peer.displayName}</strong>
@@ -794,12 +822,14 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
               </button>
               <Avatar
                 user={selected.peer}
-                online={online.has(selected.peer.id)}
+                online={!selected.isGroup && online.has(selected.peer.id)}
               />
               <div className="chat-person">
                 <h2>{selected.peer.displayName}</h2>
                 <span>
-                  {online.has(selected.peer.id) ? (
+                  {selected.isGroup ? (
+                    `${selected.memberCount} members · Group`
+                  ) : online.has(selected.peer.id) ? (
                     <>
                       <i className="status-dot" />
                       Online now
@@ -809,6 +839,15 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
                   )}
                 </span>
               </div>
+              {selected.isGroup && (
+                <button
+                  className="icon-button"
+                  aria-label="Group details"
+                  onClick={() => setGroupDialog({ conversation: selected })}
+                >
+                  <Users size={19} />
+                </button>
+              )}
               <span className="private-label">
                 <ShieldCheck size={15} />
                 Private conversation
@@ -859,7 +898,8 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
                       <MessageBubble
                         message={m}
                         mine={m.senderId === user.id}
-                        readId={peerReadId}
+                        readId={selected.isGroup ? 0 : peerReadId}
+                        showSender={selected.isGroup}
                         onPreview={setLightbox}
                         onImageLoad={() => {
                           const el = scroll.current;
@@ -884,7 +924,12 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
                       <span />
                       <span />
                       <span />
-                      <small>{selected.peer.displayName} is typing</small>
+                      <small>
+                        {selected.isGroup
+                          ? "Someone"
+                          : selected.peer.displayName}{" "}
+                        is typing
+                      </small>
                     </div>
                   )}
                   <div ref={bottom} />
@@ -1049,6 +1094,18 @@ function Chat({ user, maxUpload, onLogout, theme, setTheme }) {
           userId={user.id}
           changeKey={messageChange}
           onClose={() => setSearchOpen(false)}
+        />
+      )}
+      {groupDialog && (
+        <Groups
+          conversation={groupDialog.conversation}
+          userId={user.id}
+          close={() => setGroupDialog(null)}
+          onChanged={refreshList}
+          onCreated={async (cid) => {
+            await refreshList();
+            select(cid);
+          }}
         />
       )}
       {newChat && (

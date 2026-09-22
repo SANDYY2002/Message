@@ -122,6 +122,8 @@ export function createCalls(
       attempts.set(user.id, Date.now());
       const conversationId = id(data.conversationId);
       const conversation = await membership(conversationId, user.id);
+      if (conversation.kind === "group")
+        throw new Error("Calls are available in direct conversations only.");
       const peer = otherUser(conversation, user.id);
       if (busy.has(user.id) || busy.has(peer))
         throw new Error("You or this person is already in a call.");
