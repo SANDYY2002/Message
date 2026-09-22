@@ -1082,8 +1082,9 @@ test("profile avatars, unique usernames and password session revocation", async 
 });
 
 test("groups can start with one other member but cannot be empty", async () => {
+  const owner = await register("smallgroup");
   const created = await request("/groups", {
-    user: eve,
+    user: owner,
     body: { name: "Small group", userIds: [bob.id] },
   });
   assert.equal(created.res.status, 201, JSON.stringify(created.data));
@@ -1092,8 +1093,8 @@ test("groups can start with one other member but cannot be empty", async () => {
   assert.equal(
     (
       await request("/groups", {
-        user: eve,
-        body: { name: "Empty", userIds: [eve.id] },
+        user: owner,
+        body: { name: "Empty", userIds: [owner.id] },
       })
     ).res.status,
     400,
