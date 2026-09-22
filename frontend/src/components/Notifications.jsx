@@ -1,7 +1,16 @@
+import { createMessageSound } from "../message-sound";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
-import { Bell, BellOff, X } from "lucide-react";
+import { Bell, BellOff, Volume2, VolumeX, Play, X } from "lucide-react";
 
+const soundKey = (uid) => `message-sound:${uid}`;
+function readSound(uid) {
+  try {
+    return localStorage.getItem(soundKey(uid)) === "on";
+  } catch {
+    return false;
+  }
+}
 const preferenceKey = (uid) => `message-notifications:${uid}`;
 function readPreference(uid) {
   try {
@@ -57,6 +66,9 @@ export default function Notifications({
     window.isSecureContext &&
     "Notification" in window &&
     "serviceWorker" in navigator;
+  const [soundEnabled, setSoundEnabled] = useState(() => readSound(user.id));
+  const sound = useRef(null);
+  if (!sound.current) sound.current = createMessageSound();
   const [enabled, setEnabled] = useState(() => readPreference(user.id));
   const [permission, setPermission] = useState(() =>
     supported ? Notification.permission : "unsupported",
@@ -67,7 +79,63 @@ export default function Notifications({
   const latest = useRef(null),
     mounted = useRef(true),
     seen = useRef(new Set());
-  latest.current = { enabled, activeId, onOpen, sending };
+  latest.current = { enabled, soundEnabled, activeId, onOpen, sending };
+  useEffect(() => {
+    const unlock = () => {
+      if (latest.current.soundEnabled)
+        void sound.current.unlock().catch(() => {});
+    };
+    window.addEventListener("pointerdown", unlock);
+    window.addEventListener("keydown", unlock);
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+      sound.current.close();
+    };
+  }, []);
+  async function toggleSound() {
+    const next = !soundEnabled;
+    if (next) {
+      try {
+        if (!(await sound.current.unlock()))
+          throw new Error("Click Test sound to enable audio.");
+      } catch (e) {
+        setNotice(e.message);
+        return;
+      }
+    }
+    latest.current.soundEnabled = next;
+    setSoundEnabled(next);
+    try {
+      localStorage.setItem(soundKey(user.id), next ? "on" : "off");
+    } catch {}
+    if (next) sound.current.play();
+  }
+  async function chime(messageId) {
+    const play = () => {
+      if (!mounted.current || !latest.current.soundEnabled) return;
+      const key = `message-sound-recent:${user.id}`;
+      let recent = [];
+      try {
+        recent = JSON.parse(localStorage.getItem(key) || "[]");
+        if (!Array.isArray(recent)) recent = [];
+      } catch {}
+      if (recent.includes(messageId)) return;
+      if (sound.current.play()) {
+        try {
+          localStorage.setItem(
+            key,
+            JSON.stringify([...recent.slice(-99), messageId]),
+          );
+        } catch {}
+      }
+    };
+    try {
+      if (navigator.locks)
+        await navigator.locks.request(`message-sound:${user.id}`, play);
+      else play();
+    } catch {}
+  }
   const unread = conversations.reduce((sum, c) => sum + c.unread, 0);
   useEffect(() => {
     document.title = unread
@@ -121,6 +189,7 @@ export default function Notifications({
         closeNotifications(user.id, latest.current.activeId);
     }
     function storage(e) {
+      if (e.key === soundKey(user.id)) setSoundEnabled(readSound(user.id));
       if (e.key === preferenceKey(user.id)) setEnabled(readPreference(user.id));
     }
     window.addEventListener("focus", focus);
@@ -162,6 +231,7 @@ export default function Notifications({
         document.visibilityState === "visible" && document.hasFocus();
       if (foreground && latest.current.activeId === m.conversationId) return;
       setToast({ conversationId: m.conversationId, messageId: m.id });
+      void chime(m.id);
       if (
         foreground ||
         !supported ||
@@ -195,6 +265,7 @@ export default function Notifications({
             return;
           await reg.showNotification("New message", {
             body: "You have a new message in Message.",
+            silent: true,
             tag: `message:${user.id}:${m.conversationId}`,
             data: {
               userId: user.id,
@@ -281,23 +352,52 @@ export default function Notifications({
   return (
     <>
       <div className="notification-settings">
-        <button
-          className="notification-toggle"
-          disabled={busy}
-          aria-pressed={enabled && permission === "granted"}
-          onClick={toggle}
-        >
-          {enabled && permission === "granted" ? (
-            <Bell size={17} />
-          ) : (
-            <BellOff size={17} />
-          )}
-          {busy
-            ? "Enabling…"
-            : enabled
-              ? "Disable notifications"
-              : "Enable notifications"}
-        </button>
+        <div className="notification-heading">
+          <span>STAY IN THE LOOP</span>
+          <small>Make it yours</small>
+        </div>
+        <div className="notification-controls">
+          <button
+            className="notification-toggle"
+            disabled={busy}
+            aria-pressed={enabled && permission === "granted"}
+            onClick={toggle}
+          >
+            {enabled && permission === "granted" ? (
+              <Bell size={17} />
+            ) : (
+              <BellOff size={17} />
+            )}
+            {busy
+              ? "Enabling…"
+              : enabled
+                ? "Disable notifications"
+                : "Enable notifications"}
+          </button>
+          <button
+            className="notification-toggle"
+            aria-pressed={soundEnabled}
+            onClick={toggleSound}
+          >
+            {soundEnabled ? <Volume2 size={17} /> : <VolumeX size={17} />}
+            {soundEnabled ? "Sound on" : "Enable sound"}
+          </button>
+          <button
+            className="sound-test"
+            aria-label="Test sound"
+            title="Test sound"
+            onClick={async () => {
+              try {
+                await sound.current.unlock();
+                sound.current.play();
+              } catch (e) {
+                setNotice(e.message);
+              }
+            }}
+          >
+            <Play size={15} />
+          </button>
+        </div>
         {notice && (
           <p role="status">
             {notice}

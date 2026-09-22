@@ -285,3 +285,11 @@ Voice and video calls currently work only in direct conversations; this update d
 ## Profile settings update
 
 Stop the development server, pull main, run `npm ci` and `npm run db:migrate`, then restart using `npm run dev`. Open **Profile settings** in the sidebar for avatar selection, square image uploads, unique username changes and password changes. Changing your password signs out all devices.
+
+## Message sounds
+
+Click **Enable sound** beside the notification controls. It plays a short preview and remembers your choice on this browser for this account. **Test sound** previews the chime; **Sound on** turns it off. Sound works independently of browser notification permission, for new direct and group messages. Your own messages and the conversation you are actively reading stay quiet. Supported browsers deduplicate the chime across tabs.
+
+Keep Message open and connected. After a reload, click or type in the app once to let the browser unlock audio. Muted tabs, device volume, browser restrictions and suspended/closed pages can prevent sound. System banners are silent so they do not play a second sound over the app chime.
+
+Profile settings includes six built-in illustrated avatars and initials, plus your own square photo upload. Username uniqueness and current-password verification remain enforced by the server.

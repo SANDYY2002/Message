@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { X, Camera, ShieldCheck, AtSign } from "lucide-react";
 import { api, post } from "../api";
 export const avatarPresets = {
   initials: "Initials",
@@ -10,6 +10,8 @@ export const avatarPresets = {
   moon: "🌙",
   rocket: "🚀",
 };
+export const presetImage = (key) =>
+  key !== "initials" && avatarPresets[key] ? `/avatars/${key}.svg` : null;
 export default function Profile({ user, onUpdate, onLogout, close }) {
   const dialog = useRef(null);
   const [username, setUsername] = useState(user.username),
@@ -68,6 +70,23 @@ export default function Profile({ user, onUpdate, onLogout, close }) {
           <X />
         </button>
       </header>
+      <div className="profile-identity">
+        <span className="profile-identity-avatar">
+          {user.avatarUrl || presetImage(user.avatarPreset) ? (
+            <img
+              src={user.avatarUrl || presetImage(user.avatarPreset)}
+              alt="Current avatar"
+            />
+          ) : (
+            user.displayName.slice(0, 1).toUpperCase()
+          )}
+        </span>
+        <div>
+          <h3>{user.displayName}</h3>
+          <p>@{user.username}</p>
+          <small>Your space. Your style.</small>
+        </div>
+      </div>
       {error && (
         <p role="alert" className="error">
           {error}
@@ -75,7 +94,9 @@ export default function Profile({ user, onUpdate, onLogout, close }) {
       )}
       {notice && <p role="status">{notice}</p>}
       <fieldset disabled={busy}>
-        <legend>Avatar</legend>
+        <legend>
+          <Camera size={17} /> Your avatar
+        </legend>
         <div className="avatar-presets">
           {Object.entries(avatarPresets).map(([key, icon]) => (
             <button
@@ -85,16 +106,22 @@ export default function Profile({ user, onUpdate, onLogout, close }) {
                 !user.avatarUrl && (user.avatarPreset || "initials") === key
               }
               onClick={() =>
-                action(() =>
-                  save(
+                action(async () => {
+                  setFile(null);
+                  await save(
                     "/profile/avatar",
                     { method: "PATCH", body: JSON.stringify({ preset: key }) },
                     "Avatar updated.",
-                  ),
-                )
+                  );
+                })
               }
             >
-              {icon}
+              {presetImage(key) ? (
+                <img src={presetImage(key)} alt="" />
+              ) : (
+                <span>{user.displayName.slice(0, 1).toUpperCase()}</span>
+              )}
+              <small>{key === "initials" ? "Initials" : key}</small>
             </button>
           ))}
         </div>
@@ -157,7 +184,9 @@ export default function Profile({ user, onUpdate, onLogout, close }) {
         }}
       >
         <fieldset disabled={busy}>
-          <legend>Username</legend>
+          <legend>
+            <AtSign size={17} /> Username
+          </legend>
           <label>
             Username
             <input
@@ -193,7 +222,9 @@ export default function Profile({ user, onUpdate, onLogout, close }) {
         }}
       >
         <fieldset disabled={busy}>
-          <legend>Password</legend>
+          <legend>
+            <ShieldCheck size={17} /> Password & security
+          </legend>
           <label>
             Current password
             <input

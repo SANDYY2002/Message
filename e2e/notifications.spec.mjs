@@ -26,6 +26,12 @@ test("message notifications are opt-in, private, actionable, and disabled on req
   await b.addInitScript(() => {
     window.__notificationFocus = true;
     window.__notificationRequests = [];
+    window.__soundStarts = 0;
+    const start = OscillatorNode.prototype.start;
+    OscillatorNode.prototype.start = function (...args) {
+      window.__soundStarts++;
+      return start.apply(this, args);
+    };
     // Call the real browser API while observing requests: headless CI may not
     // retain OS notifications in getNotifications(), even when display succeeds.
     const show = ServiceWorkerRegistration.prototype.showNotification;
@@ -105,6 +111,12 @@ test("message notifications are opt-in, private, actionable, and disabled on req
     ).toBeVisible();
     await expect(b).toHaveTitle("(1) Message");
     expect(await requests()).toHaveLength(0);
+    expect(await b.evaluate(() => window.__soundStarts)).toBe(0);
+    await b.getByRole("button", { name: "Enable sound", exact: true }).click();
+    await expect(
+      b.getByRole("button", { name: "Sound on", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect.poll(() => b.evaluate(() => window.__soundStarts)).toBe(2);
     await b
       .getByRole("button", { name: "Enable notifications", exact: true })
       .click();
@@ -118,6 +130,7 @@ test("message notifications are opt-in, private, actionable, and disabled on req
     await expect
       .poll(async () => await requests())
       .toMatchObject([{ completed: true }]);
+    await expect.poll(() => b.evaluate(() => window.__soundStarts)).toBe(4);
     const [notice] = await requests();
     expect(notice.title).toBe("New message");
     expect(notice.body).toBe("You have a new message in Message.");
@@ -142,6 +155,7 @@ test("message notifications are opt-in, private, actionable, and disabled on req
         .getByText("Already reading this conversation", { exact: true }),
     ).toBeVisible();
     expect(await requests()).toHaveLength(1);
+    expect(await b.evaluate(() => window.__soundStarts)).toBe(4);
     await expect(
       b.getByRole("button", { name: "New message · Open conversation" }),
     ).toHaveCount(0);
@@ -154,6 +168,7 @@ test("message notifications are opt-in, private, actionable, and disabled on req
     await b.evaluate(() => {
       window.__notificationFocus = false;
     });
+    await b.getByRole("button", { name: "Sound on", exact: true }).click();
     await send("Disabled browser alerts");
     await expect(
       b
@@ -161,6 +176,11 @@ test("message notifications are opt-in, private, actionable, and disabled on req
         .getByText("Disabled browser alerts", { exact: true }),
     ).toBeVisible();
     expect(await requests()).toHaveLength(1);
+    expect(await b.evaluate(() => window.__soundStarts)).toBe(4);
+    await b.reload();
+    await expect(
+      b.getByRole("button", { name: "Enable sound", exact: true }),
+    ).toHaveAttribute("aria-pressed", "false");
     expect(errors).toEqual([]);
   } catch (error) {
     console.log(

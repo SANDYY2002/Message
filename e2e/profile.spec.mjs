@@ -20,6 +20,18 @@ test("profile settings save a square avatar and username, then change password",
   await expect(
     dialog.getByRole("button", { name: "Use fox avatar", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".profile-identity-avatar img")).toHaveAttribute(
+    "src",
+    "/avatars/fox.svg",
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(dialog).toBeVisible();
+  expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
+    true,
+  );
+  await page.screenshot({ path: "test-results/profile-mobile.png" });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.screenshot({ path: "test-results/profile-desktop.png" });
   const buffer = await sharp({
     create: { width: 400, height: 200, channels: 3, background: "green" },
   })

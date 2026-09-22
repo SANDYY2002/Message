@@ -1,4 +1,4 @@
-import Profile, { avatarPresets } from "./components/Profile";
+import Profile, { presetImage } from "./components/Profile";
 import Groups from "./components/Groups";
 import Notifications from "./components/Notifications";
 import Calls from "./components/Calls";
@@ -45,9 +45,8 @@ function Avatar({ user, online = false, large = false }) {
     <span className={`avatar ${shade(user)} ${large ? "large" : ""}`}>
       {user.avatarUrl ? (
         <img src={user.avatarUrl} alt="" />
-      ) : avatarPresets[user.avatarPreset] &&
-        user.avatarPreset !== "initials" ? (
-        avatarPresets[user.avatarPreset]
+      ) : presetImage(user.avatarPreset) ? (
+        <img src={presetImage(user.avatarPreset)} alt="" />
       ) : (
         initial(user)
       )}
