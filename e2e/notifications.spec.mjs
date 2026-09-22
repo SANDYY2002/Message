@@ -1,5 +1,8 @@
 import { test, expect } from "@playwright/test";
 
+// Full Chromium implements notification permissions; the minimal headless shell does not.
+test.use({ channel: "chromium" });
+
 test("message notifications are opt-in, private, actionable, and disabled on request", async ({
   browser,
 }) => {
@@ -10,6 +13,9 @@ test("message notifications are opt-in, private, actionable, and disabled on req
   const bContext = await browser.newContext({
     baseURL: "http://localhost:5173",
     permissions: ["notifications"],
+  });
+  await bContext.grantPermissions(["notifications"], {
+    origin: "http://localhost:5173",
   });
   const a = await aContext.newPage(),
     b = await bContext.newPage();
@@ -80,6 +86,7 @@ test("message notifications are opt-in, private, actionable, and disabled on req
   try {
     await signup(a, "notifyalice");
     await signup(b, "notifybob");
+    expect(await b.evaluate(() => Notification.permission)).toBe("granted");
     await a
       .getByRole("button", { name: "New conversation", exact: true })
       .first()
