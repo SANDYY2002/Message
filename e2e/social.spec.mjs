@@ -99,7 +99,7 @@ test("publish from both tabs, follow, engage, review requests and block", async 
       .fill("A colourful corner of the community");
     await a.getByRole("button", { name: "Save bio", exact: true }).click();
     await expect(a.getByText("Bio updated.", { exact: true })).toBeVisible();
-    await a.getByLabel("Theme", { exact: true }).selectOption("coloured");
+    await a.getByRole("combobox", { name: "Theme", exact: true }).selectOption("coloured");
     await a
       .getByRole("button", { name: "Close settings", exact: true })
       .click();
