@@ -141,6 +141,8 @@ export default function Social({
         .catch(() => {});
     };
     const relationships = () => {
+      setProfile(null);
+      setConnections(null);
       setComments({});
       setPosts([]);
       setPeople([]);
