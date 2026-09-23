@@ -12,13 +12,21 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { api, post } from "../api";
+import { useViewedActivities } from "../useViewedActivities";
 import { presetImage } from "./Profile";
-function Face({ user }) {
+const followLabel = (p) =>
+  p.following ? "Unfollow" : p.followsYou ? "Follow Back" : "Follow";
+function Face({ user, onClick }) {
   const src = user.avatarUrl || presetImage(user.avatarPreset);
   return (
-    <span className="avatar">
+    <button
+      type="button"
+      className="avatar profile-face"
+      onClick={onClick}
+      aria-label={`View @${user.username} profile`}
+    >
       {src ? <img src={src} alt="" /> : user.displayName.slice(0, 1)}
-    </span>
+    </button>
   );
 }
 const date = (value) =>
@@ -36,7 +44,13 @@ export default function Social({
   onActivityCount,
   focusPost,
   onClearPost,
+  focusProfile,
+  onProfile,
+  onCloseProfile,
 }) {
+  const root = useRef(null);
+  const [profile, setProfile] = useState(null);
+  const [connections, setConnections] = useState(null);
   const loadSequence = useRef(0);
   const [posts, setPosts] = useState([]),
     [people, setPeople] = useState([]),
@@ -52,6 +66,23 @@ export default function Social({
     [next, setNext] = useState(null);
   const [comments, setComments] = useState({}),
     [commentDrafts, setCommentDrafts] = useState({});
+  useViewedActivities(
+    activities,
+    page === "activity",
+    setActivities,
+    onActivityCount,
+    root,
+  );
+  async function showConnections(kind, more = false) {
+    const d = await api(
+      `/people/${focusProfile}/connections?kind=${kind}${more && connections?.nextBefore ? `&before=${connections.nextBefore}` : ""}`,
+    );
+    setConnections((old) => ({
+      ...d,
+      kind,
+      users: more ? [...old.users, ...d.users] : d.users,
+    }));
+  }
   async function load(more = false) {
     const seq = ++loadSequence.current;
     const suffix = more && next ? `&before=${next}` : "";
@@ -61,6 +92,15 @@ export default function Social({
       setActivities((old) => (more ? [...old, ...d.items] : d.items));
       setNext(d.nextBefore);
       onActivityCount(d.unread);
+    } else if (focusProfile) {
+      const [d, p] = await Promise.all([
+        api(`/posts?author=${focusProfile}${suffix}`),
+        api(`/people/${focusProfile}`),
+      ]);
+      if (seq !== loadSequence.current) return;
+      setProfile(p.profile);
+      setPosts((old) => (more ? [...old, ...d.posts] : d.posts));
+      setNext(d.nextBefore);
     } else if (focusPost) {
       const d = await api(`/posts/${focusPost}`);
       if (seq !== loadSequence.current) return;
@@ -79,6 +119,8 @@ export default function Social({
     setLoading(true);
     setError("");
     setComments({});
+    setProfile(null);
+    setConnections(null);
     setNext(null);
     load().catch((e) => {
       if (alive) {
@@ -90,7 +132,7 @@ export default function Social({
       alive = false;
       loadSequence.current++;
     };
-  }, [page, mode, focusPost]);
+  }, [page, mode, focusPost, focusProfile]);
   useEffect(() => {
     const changed = () => {
       load().catch((e) => setError(e.message));
@@ -104,19 +146,31 @@ export default function Social({
       setPeople([]);
       changed();
     };
+    const read = ({ ids, through }) => {
+      setActivities((old) =>
+        old.map((a) =>
+          (ids ? ids.includes(a.id) : a.id <= through)
+            ? { ...a, read: true }
+            : a,
+        ),
+      );
+      api("/activities")
+        .then((d) => onActivityCount(d.unread))
+        .catch(() => {});
+    };
     socket?.on("user:updated", changed);
     socket?.on("social:changed", changed);
     socket?.on("relationships:changed", relationships);
     socket?.on("activity:new", changed);
-    socket?.on("activity:read", changed);
+    socket?.on("activity:read", read);
     return () => {
       socket?.off("user:updated", changed);
       socket?.off("social:changed", changed);
       socket?.off("relationships:changed", relationships);
       socket?.off("activity:new", changed);
-      socket?.off("activity:read", changed);
+      socket?.off("activity:read", read);
     };
-  }, [socket, page, mode, focusPost, search]);
+  }, [socket, page, mode, focusPost, focusProfile, search]);
   useEffect(() => {
     let alive = true;
     const timer = setTimeout(
@@ -143,6 +197,7 @@ export default function Social({
     try {
       await fn();
       await load();
+      if (connections) await showConnections(connections.kind);
       const d = await api(`/people?q=${encodeURIComponent(search)}`);
       setPeople(d.users);
       setNotice(message);
@@ -177,6 +232,7 @@ export default function Social({
   }
   return (
     <section
+      ref={root}
       className="social-page"
       aria-label={
         page === "home" ? "Home" : page === "posts" ? "Posts" : "Activity"
@@ -203,7 +259,132 @@ export default function Social({
       )}
       <div className="social-layout">
         <div className="feed">
-          {page !== "activity" && (
+          {focusProfile && page !== "activity" && (
+            <>
+              <button className="text-button" onClick={onCloseProfile}>
+                <ArrowLeft size={16} />
+                Back to feed
+              </button>
+              {profile && (
+                <section className="public-profile" aria-label="User profile">
+                  <div className="profile-cover" />
+                  <div className="profile-body">
+                    <Face user={profile} />
+                    <h2>{profile.displayName}</h2>
+                    <p className="profile-handle">@{profile.username}</p>
+                    <p className="profile-bio">
+                      {profile.bio || "No bio yet."}
+                    </p>
+                    <div className="profile-stats">
+                      <span>
+                        <strong>{profile.postCount}</strong> Posts
+                      </span>
+                      <button
+                        onClick={() =>
+                          showConnections("followers").catch((e) =>
+                            setError(e.message),
+                          )
+                        }
+                      >
+                        <strong>{profile.followers}</strong> Followers
+                      </button>
+                      <button
+                        onClick={() =>
+                          showConnections("following").catch((e) =>
+                            setError(e.message),
+                          )
+                        }
+                      >
+                        <strong>{profile.followingCount}</strong> Following
+                      </button>
+                    </div>
+                    {profile.id !== user.id && (
+                      <div className="profile-actions">
+                        <button
+                          className="primary"
+                          disabled={busy}
+                          onClick={() =>
+                            act(() =>
+                              change(
+                                `/people/${profile.id}/follow`,
+                                profile.following ? "DELETE" : "PUT",
+                              ),
+                            )
+                          }
+                        >
+                          {followLabel(profile)}
+                        </button>
+                        <button
+                          className="secondary"
+                          onClick={() => onMessage(profile.id)}
+                        >
+                          Message
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {connections && (
+                    <section
+                      className="profile-connections"
+                      aria-label={connections.kind}
+                    >
+                      <header>
+                        <h3>
+                          {connections.kind === "followers"
+                            ? "Followers"
+                            : "Following"}
+                        </h3>
+                        <button onClick={() => setConnections(null)}>
+                          Close
+                        </button>
+                      </header>
+                      {!connections.users.length && <p>No people yet.</p>}
+                      {connections.users.map((p) => (
+                        <div className="connection-row" key={p.id}>
+                          <Face user={p} onClick={() => onProfile(p.id)} />
+                          <button
+                            className="profile-link"
+                            onClick={() => onProfile(p.id)}
+                          >
+                            {p.displayName}
+                            <small>@{p.username}</small>
+                          </button>
+                          {p.id !== user.id && (
+                            <button
+                              disabled={busy}
+                              onClick={() =>
+                                act(() =>
+                                  change(
+                                    `/people/${p.id}/follow`,
+                                    p.following ? "DELETE" : "PUT",
+                                  ),
+                                )
+                              }
+                            >
+                              {followLabel(p)}
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      {connections.nextBefore && (
+                        <button
+                          onClick={() =>
+                            showConnections(connections.kind, true).catch((e) =>
+                              setError(e.message),
+                            )
+                          }
+                        >
+                          More people
+                        </button>
+                      )}
+                    </section>
+                  )}
+                </section>
+              )}
+            </>
+          )}
+
+          {page !== "activity" && !focusProfile && (
             <>
               <form
                 className="post-composer"
@@ -217,7 +398,7 @@ export default function Social({
                 }}
               >
                 <div className="post-author">
-                  <Face user={user} />
+                  <Face user={user} onClick={() => onProfile(user.id)} />
                   <div>
                     <strong>{user.displayName}</strong>
                     <small>Share with the community</small>
@@ -294,12 +475,18 @@ export default function Social({
               )}
               {activities.map((a) => (
                 <article
+                  data-activity-id={a.id}
                   key={a.id}
                   className={`activity-card ${a.read ? "" : "unread"}`}
                 >
-                  <Face user={a.actor} />
+                  <Face user={a.actor} onClick={() => onProfile(a.actor.id)} />
                   <div>
-                    <strong>{a.actor.displayName}</strong>
+                    <button
+                      className="profile-link"
+                      onClick={() => onProfile(a.actor.id)}
+                    >
+                      <strong>{a.actor.displayName}</strong>
+                    </button>
                     <p>
                       {
                         {
@@ -347,7 +534,13 @@ export default function Social({
                     {item.original && (
                       <div className="repost-label">
                         <Repeat2 size={14} />
-                        {item.author.displayName} reposted{" "}
+                        <button
+                          className="profile-link"
+                          onClick={() => onProfile(item.author.id)}
+                        >
+                          {item.author.displayName}
+                        </button>{" "}
+                        reposted{" "}
                         {item.author.id === user.id && (
                           <button
                             disabled={busy}
@@ -364,9 +557,17 @@ export default function Social({
                       </div>
                     )}
                     <header className="post-author">
-                      <Face user={p.author} />
+                      <Face
+                        user={p.author}
+                        onClick={() => onProfile(p.author.id)}
+                      />
                       <div>
-                        <strong>{p.author.displayName}</strong>
+                        <button
+                          className="profile-link"
+                          onClick={() => onProfile(p.author.id)}
+                        >
+                          <strong>{p.author.displayName}</strong>
+                        </button>
                         <small>
                           @{p.author.username} · {date(p.createdAt)}
                         </small>
@@ -383,7 +584,7 @@ export default function Social({
                             )
                           }
                         >
-                          {p.following ? "Following" : "Follow"}
+                          {followLabel(p)}
                         </button>
                       ) : (
                         <button
@@ -536,7 +737,12 @@ export default function Social({
                         </form>
                         {comments[p.id].comments.map((c) => (
                           <div className="comment" key={c.id}>
-                            <strong>{c.author.displayName}</strong>
+                            <button
+                              className="profile-link"
+                              onClick={() => onProfile(c.author.id)}
+                            >
+                              <strong>{c.author.displayName}</strong>
+                            </button>
                             <p>{c.text}</p>
                             {c.author.id === user.id && (
                               <button
@@ -593,9 +799,14 @@ export default function Social({
           {people.map((p) => (
             <div className="person-card" key={p.id}>
               <div className="post-author">
-                <Face user={p} />
+                <Face user={p} onClick={() => onProfile(p.id)} />
                 <div>
-                  <strong>{p.displayName}</strong>
+                  <button
+                    className="profile-link"
+                    onClick={() => onProfile(p.id)}
+                  >
+                    <strong>{p.displayName}</strong>
+                  </button>
                   <small>
                     @{p.username} · {p.followers} followers
                   </small>
@@ -614,7 +825,7 @@ export default function Social({
                   }
                 >
                   <UserPlus size={14} />
-                  {p.following ? "Following" : "Follow"}
+                  {followLabel(p)}
                 </button>
                 <button disabled={busy} onClick={() => onMessage(p.id)}>
                   Message

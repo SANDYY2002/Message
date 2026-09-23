@@ -92,3 +92,7 @@ Usernames can be changed to an available name (3–24 lowercase letters, numbers
 After pulling this update, stop the app, run `npm ci` and `npm run db:migrate`, then restart with `npm run dev`. Migration 5 adds profile fields without resetting accounts or messages.
 
 Groups can start with you and **one other registered user**. Enter a name, select a person, then click **Create group (2)**. The owner can add more members later, up to 50 total. If no people appear, another account must register first (or clear the search).
+
+### Profiles and appearance
+
+Open a person’s name or avatar to see their bio, posts, followers and following. Follow buttons show Follow, Follow Back or Unfollow according to your relationship. Edit your bio in Settings. Activity notifications are marked read when visible in the focused app; unseen notifications remain unread. Settings → Appearance includes the coloured Aurora theme alongside system, light and dark modes. Theme selection persists on this device. After updating, run `npm run db:migrate` to add profile bios.

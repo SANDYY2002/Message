@@ -57,6 +57,17 @@ export function mountProfile(app, io, limiter) {
       );
     });
   }
+  app.patch("/api/profile/bio", limit, async (req, res) => {
+    if (typeof req.body?.bio !== "string" || req.body.bio.trim().length > 300)
+      throw new HttpError(400, "Bio must be at most 300 characters.");
+    const user = await update(req, (q) =>
+      q("UPDATE users SET bio=? WHERE id=?", [
+        req.body.bio.trim(),
+        req.auth.user.id,
+      ]),
+    );
+    res.json({ user });
+  });
   app.patch("/api/profile/username", limit, async (req, res) => {
     const { username } = credentials({
       username: req.body?.username,

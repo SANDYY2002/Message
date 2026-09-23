@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   Settings,
   Home,
+  Palette,
   Newspaper,
   Bell,
   Ban,
@@ -61,14 +62,16 @@ function Avatar({ user, online = false, large = false }) {
   );
 }
 function ThemeButton({ theme, setTheme }) {
-  const modes = ["system", "light", "dark"];
-  const Icon = { system: Monitor, light: Sun, dark: Moon }[theme];
+  const modes = ["system", "light", "dark", "coloured"];
+  const Icon = { system: Monitor, light: Sun, dark: Moon, coloured: Palette }[
+    theme
+  ];
   return (
     <button
       className="icon-button"
       title={`Theme: ${theme}. Click to change.`}
       aria-label={`Theme: ${theme}. Change theme`}
-      onClick={() => setTheme(modes[(modes.indexOf(theme) + 1) % 3])}
+      onClick={() => setTheme(modes[(modes.indexOf(theme) + 1) % modes.length])}
     >
       <Icon size={19} />
     </button>
@@ -92,7 +95,7 @@ export default function App() {
     [startupError, setStartupError] = useState("");
   const [theme, setTheme] = useState(() => {
     try {
-      return ["system", "light", "dark"].includes(
+      return ["system", "light", "dark", "coloured"].includes(
         localStorage.getItem("message-theme"),
       )
         ? localStorage.getItem("message-theme")
@@ -362,6 +365,7 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
   }, [page, user.id]);
   const pageRef = useRef("home");
   pageRef.current = page;
+  const [focusProfile, setFocusProfile] = useState(null);
   const [inbox, setInbox] = useState("inbox");
   const [activityCount, setActivityCount] = useState(0);
   const [focusPost, setFocusPost] = useState(() => {
@@ -717,9 +721,16 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
       setPage("messages");
     }
   }
+  function viewProfile(uid) {
+    if (sendingRef.current) return;
+    setFocusProfile(uid);
+    setFocusPost(null);
+    setPage("posts");
+  }
   function navigate(next) {
     if (sendingRef.current) return;
     setPage(next);
+    setFocusProfile(null);
     setFocusPost(null);
   }
   async function requestAction(action) {
@@ -842,7 +853,14 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
           >
             <LogOut size={19} />
           </button>
-          <Avatar user={user} />
+          <button
+            className="nav-profile"
+            aria-label="Your profile"
+            title="Your profile"
+            onClick={() => viewProfile(user.id)}
+          >
+            <Avatar user={user} />
+          </button>
         </div>
       </nav>
       {page !== "messages" && (
@@ -853,7 +871,11 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
           onMessage={startMessage}
           onActivityCount={setActivityCount}
           focusPost={focusPost}
+          focusProfile={focusProfile}
+          onProfile={viewProfile}
+          onCloseProfile={() => setFocusProfile(null)}
           onClearPost={(pid) => {
+            setFocusProfile(null);
             const url = new URL(location.href);
             if (pid) url.searchParams.set("post", pid);
             else url.searchParams.delete("post");
@@ -1051,7 +1073,18 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
                 online={!selected.isGroup && online.has(selected.peer.id)}
               />
               <div className="chat-person">
-                <h2>{selected.peer.displayName}</h2>
+                <h2>
+                  {selected.isGroup ? (
+                    selected.peer.displayName
+                  ) : (
+                    <button
+                      className="profile-link"
+                      onClick={() => viewProfile(selected.peer.id)}
+                    >
+                      {selected.peer.displayName}
+                    </button>
+                  )}
+                </h2>
                 <span>
                   {selected.isGroup ? (
                     `${selected.memberCount} members · Group`

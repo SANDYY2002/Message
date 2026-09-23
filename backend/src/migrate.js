@@ -2,7 +2,7 @@ import { migrateSocial } from "./social-migration.js";
 import { readFile } from "node:fs/promises";
 import { pool } from "./db.js";
 import { fileURLToPath } from "node:url";
-export const LATEST_SCHEMA_VERSION = 6;
+export const LATEST_SCHEMA_VERSION = 7;
 export async function migrate() {
   const conn = await pool.getConnection();
   try {
@@ -128,6 +128,19 @@ export async function migrate() {
     if (!v6.length) {
       await migrateSocial(conn);
       await conn.query("INSERT INTO schema_migrations(version) VALUES(6)");
+    }
+    const [v7] = await conn.query(
+      "SELECT version FROM schema_migrations WHERE version=7",
+    );
+    if (!v7.length) {
+      const [columns] = await conn.query(
+        "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='bio'",
+      );
+      if (!columns.length)
+        await conn.query(
+          "ALTER TABLE users ADD COLUMN bio VARCHAR(300) NOT NULL DEFAULT ''",
+        );
+      await conn.query("INSERT INTO schema_migrations(version) VALUES(7)");
     }
   } finally {
     await conn.query("SELECT RELEASE_LOCK('message_schema_migration')");

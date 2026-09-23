@@ -21,7 +21,7 @@ export async function authenticate(headers) {
   const hash = sessionHash(headers);
   if (!hash) throw new HttpError(401, "Please sign in.");
   const [row] = await query(
-    "SELECT u.id,u.username,u.display_name,u.avatar_preset,u.avatar_path,u.avatar_revision,s.expires_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE token_hash=? AND expires_at>UTC_TIMESTAMP(3)",
+    "SELECT u.id,u.username,u.display_name,u.bio,u.avatar_preset,u.avatar_path,u.avatar_revision,s.expires_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE token_hash=? AND expires_at>UTC_TIMESTAMP(3)",
     [hash],
   );
   if (!row)

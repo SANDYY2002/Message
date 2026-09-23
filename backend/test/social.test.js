@@ -241,3 +241,60 @@ test("blocking filters shared group history, search and live events", async () =
     2,
   );
 });
+test("profiles expose bios, counts and follow direction while respecting blocks", async () => {
+  await req(`/blocks/${a.id}`, b, "DELETE");
+  assert.equal(
+    (
+      await req("/profile/bio", a, "PATCH", {
+        bio: "Building a kinder community",
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (await req("/profile/bio", a, "PATCH", { bio: "x".repeat(301) })).status,
+    400,
+  );
+  const p = await req("/posts", a, "POST", { text: "Profile content" });
+  await req(`/people/${a.id}/follow`, b, "PUT");
+  let profile = (await req(`/people/${a.id}`, b)).data.profile;
+  assert.equal(profile.bio, "Building a kinder community");
+  assert.equal(profile.following, 1);
+  assert.equal(profile.followers, 1);
+  assert.equal(profile.postCount, 1);
+  assert.equal((await req(`/people/${b.id}`, a)).data.profile.followsYou, 1);
+  assert.equal(
+    (await req(`/posts?author=${a.id}`, b)).data.posts[0].id,
+    p.data.id,
+  );
+  assert.equal(
+    (await req(`/people/${a.id}/connections?kind=followers`, b)).data.users[0]
+      .id,
+    b.id,
+  );
+  await req(`/people/${a.id}/follow`, b, "DELETE");
+  assert.equal((await req(`/people/${a.id}`, b)).data.profile.following, 0);
+  await req(`/posts/${p.data.id}/like`, b, "PUT");
+  await req(`/posts/${p.data.id}/comments`, b, "POST", {
+    text: "Another activity",
+  });
+  const before = (await req("/activities", a)).data;
+  const unread = before.items.filter((n) => !n.read);
+  assert.ok(unread.length >= 2);
+  await req("/activities/read", b, "POST", { ids: [unread[0].id] });
+  assert.equal((await req("/activities", a)).data.unread, before.unread);
+  await req("/activities/read", a, "POST", { ids: [unread[0].id] });
+  assert.equal((await req("/activities", a)).data.unread, before.unread - 1);
+  assert.equal(
+    (await req("/activities", a)).data.items.find((n) => n.id === unread[1].id)
+      .read,
+    false,
+  );
+  await req(`/blocks/${a.id}`, b, "PUT");
+  for (const route of [
+    `/people/${a.id}`,
+    `/people/${a.id}/connections`,
+    `/posts?author=${a.id}`,
+  ])
+    assert.equal((await req(route, b)).status, 403);
+});

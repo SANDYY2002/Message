@@ -49,8 +49,23 @@ export function mountSocial(app, io, limiter) {
       EXISTS(SELECT 1 FROM post_likes WHERE post_id=? AND user_id=?) AS liked,
       EXISTS(SELECT 1 FROM post_bookmarks WHERE post_id=? AND user_id=?) AS bookmarked,
       EXISTS(SELECT 1 FROM posts WHERE repost_of=? AND author_id=?) AS reposted,
-      EXISTS(SELECT 1 FROM follows WHERE follower_id=? AND followed_id=?) AS following`,
-      [p.id, p.id, p.id, p.id, uid, p.id, uid, p.id, uid, uid, p.author_id],
+      EXISTS(SELECT 1 FROM follows WHERE follower_id=? AND followed_id=?) AS following,
+      EXISTS(SELECT 1 FROM follows WHERE follower_id=? AND followed_id=?) AS followsYou`,
+      [
+        p.id,
+        p.id,
+        p.id,
+        p.id,
+        uid,
+        p.id,
+        uid,
+        p.id,
+        uid,
+        uid,
+        p.author_id,
+        p.author_id,
+        uid,
+      ],
     );
     return {
       id: p.id,
@@ -66,9 +81,12 @@ export function mountSocial(app, io, limiter) {
   app.get("/api/posts", async (req, res) => {
     const uid = req.auth.user.id,
       before = req.query.before ? id(req.query.before) : 4294967295;
+    const author = req.query.author ? id(req.query.author) : null;
+    if (author) await allowInteraction(uid, author);
     const mode = req.query.mode || "all";
-    const filter =
-      mode === "mine"
+    const filter = author
+      ? ` AND p.author_id=${author}`
+      : mode === "mine"
         ? ` AND p.author_id=${uid}`
         : mode === "following"
           ? ` AND (p.author_id=${uid} OR EXISTS(SELECT 1 FROM follows f WHERE f.follower_id=${uid} AND f.followed_id=p.author_id))`
@@ -227,15 +245,56 @@ export function mountSocial(app, io, limiter) {
         .toLowerCase()
         .slice(0, 60);
     const rows = await query(
-      `SELECT u.*,EXISTS(SELECT 1 FROM follows f WHERE f.follower_id=? AND f.followed_id=u.id) AS following,(SELECT COUNT(*) FROM follows f WHERE f.followed_id=u.id) AS followers FROM users u WHERE u.id<>? AND ${visibleTo(uid, "u.id")} AND (LOCATE(?,u.username)>0 OR LOCATE(?,LOWER(u.display_name))>0) ORDER BY u.id DESC LIMIT 30`,
-      [uid, uid, term, term],
+      `SELECT u.*,EXISTS(SELECT 1 FROM follows f WHERE f.follower_id=? AND f.followed_id=u.id) AS following,EXISTS(SELECT 1 FROM follows f WHERE f.follower_id=u.id AND f.followed_id=?) AS followsYou,(SELECT COUNT(*) FROM follows f WHERE f.followed_id=u.id) AS followers FROM users u WHERE u.id<>? AND ${visibleTo(uid, "u.id")} AND (LOCATE(?,u.username)>0 OR LOCATE(?,LOWER(u.display_name))>0) ORDER BY u.id DESC LIMIT 30`,
+      [uid, uid, uid, term, term],
     );
     res.json({
       users: rows.map((u) => ({
         ...publicUser(u),
         following: !!u.following,
+        followsYou: !!u.followsYou,
         followers: Number(u.followers),
       })),
+    });
+  });
+  app.get("/api/people/:id", async (req, res) => {
+    const uid = req.auth.user.id,
+      peer = id(req.params.id);
+    await allowInteraction(uid, peer);
+    const [u] = await query("SELECT * FROM users WHERE id=?", [peer]);
+    if (!u) throw new HttpError(404, "Profile not found.");
+    const [stats] = await query(
+      `SELECT
+      (SELECT COUNT(*) FROM posts p WHERE p.author_id=? AND (p.repost_of IS NULL OR EXISTS(SELECT 1 FROM posts o WHERE o.id=p.repost_of AND ${visibleTo(uid, "o.author_id")}))) AS postCount,
+      (SELECT COUNT(*) FROM follows f WHERE f.followed_id=? AND ${visibleTo(uid, "f.follower_id")}) AS followers,
+      (SELECT COUNT(*) FROM follows f WHERE f.follower_id=? AND ${visibleTo(uid, "f.followed_id")}) AS followingCount,
+      EXISTS(SELECT 1 FROM follows WHERE follower_id=? AND followed_id=?) AS following,
+      EXISTS(SELECT 1 FROM follows WHERE follower_id=? AND followed_id=?) AS followsYou`,
+      [peer, peer, peer, uid, peer, peer, uid],
+    );
+    res.json({ profile: { ...publicUser(u), ...stats } });
+  });
+  app.get("/api/people/:id/connections", async (req, res) => {
+    const uid = req.auth.user.id,
+      peer = id(req.params.id),
+      before = req.query.before ? id(req.query.before) : 4294967295;
+    await allowInteraction(uid, peer);
+    if (!["followers", "following"].includes(req.query.kind))
+      throw new HttpError(400, "Choose followers or following.");
+    const incoming = req.query.kind === "followers";
+    const rows = await query(
+      `SELECT u.*,EXISTS(SELECT 1 FROM follows x WHERE x.follower_id=? AND x.followed_id=u.id) AS following,EXISTS(SELECT 1 FROM follows x WHERE x.follower_id=u.id AND x.followed_id=?) AS followsYou FROM follows f JOIN users u ON u.id=f.${incoming ? "follower_id" : "followed_id"} WHERE f.${incoming ? "followed_id" : "follower_id"}=? AND u.id<? AND ${visibleTo(uid, "u.id")} ORDER BY u.id DESC LIMIT 31`,
+      [uid, uid, peer, before],
+    );
+    res.json({
+      users: rows
+        .slice(0, 30)
+        .map((u) => ({
+          ...publicUser(u),
+          following: !!u.following,
+          followsYou: !!u.followsYou,
+        })),
+      nextBefore: rows.length > 30 ? rows[29].id : null,
     });
   });
   for (const method of ["put", "delete"])
@@ -287,11 +346,29 @@ export function mountSocial(app, io, limiter) {
     });
   });
   app.post("/api/activities/read", async (req, res) => {
-    await query(
-      "UPDATE activities SET is_read=TRUE WHERE recipient_id=? AND id<=?",
-      [req.auth.user.id, id(req.body?.through)],
-    );
-    io.to(`user:${req.auth.user.id}`).emit("activity:read");
+    let update;
+    if (req.body?.ids !== undefined) {
+      if (
+        !Array.isArray(req.body.ids) ||
+        !req.body.ids.length ||
+        req.body.ids.length > 30
+      )
+        throw new HttpError(400, "Choose up to 30 notifications.");
+      const ids = [...new Set(req.body.ids.map(id))];
+      await query(
+        `UPDATE activities SET is_read=TRUE WHERE recipient_id=? AND id IN (${ids.map(() => "?").join(",")})`,
+        [req.auth.user.id, ...ids],
+      );
+      update = { ids };
+    } else {
+      const through = id(req.body?.through);
+      await query(
+        "UPDATE activities SET is_read=TRUE WHERE recipient_id=? AND id<=?",
+        [req.auth.user.id, through],
+      );
+      update = { through };
+    }
+    io.to(`user:${req.auth.user.id}`).emit("activity:read", update);
     res.sendStatus(204);
   });
 }

@@ -24,6 +24,7 @@ export default function Profile({
 }) {
   const dialog = useRef(null);
   const [tab, setTab] = useState("account");
+  const [bio, setBio] = useState(user.bio || "");
   const [username, setUsername] = useState(user.username),
     [file, setFile] = useState(null),
     [preview, setPreview] = useState("");
@@ -236,6 +237,35 @@ export default function Profile({
             e.preventDefault();
             action(() =>
               save(
+                "/profile/bio",
+                { method: "PATCH", body: JSON.stringify({ bio }) },
+                "Bio updated.",
+              ),
+            );
+          }}
+        >
+          <fieldset disabled={busy}>
+            <legend>About you</legend>
+            <label>
+              Bio
+              <textarea
+                maxLength={300}
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                placeholder="Tell people a little about yourself"
+              />
+            </label>
+            <p className="group-help">
+              {bio.length}/300 · Visible on your profile
+            </p>
+            <button type="submit">Save bio</button>
+          </fieldset>
+        </form>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            action(() =>
+              save(
                 "/profile/username",
                 { method: "PATCH", body: JSON.stringify({ username }) },
                 "Username updated.",
@@ -330,6 +360,7 @@ export default function Profile({
               <option value="system">Use device setting</option>
               <option value="light">Light</option>
               <option value="dark">Dark</option>
+              <option value="coloured">Coloured · Aurora</option>
             </select>
           </label>
         </fieldset>

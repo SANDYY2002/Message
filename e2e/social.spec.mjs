@@ -48,7 +48,7 @@ test("publish from both tabs, follow, engage, review requests and block", async 
     await expect(card).toBeVisible();
     await card.getByRole("button", { name: "Follow", exact: true }).click();
     await expect(
-      card.getByRole("button", { name: "Following", exact: true }),
+      card.getByRole("button", { name: "Unfollow", exact: true }),
     ).toBeVisible();
     await card.getByRole("button", { name: "Like post", exact: true }).click();
     await expect(
@@ -65,8 +65,43 @@ test("publish from both tabs, follow, engage, review requests and block", async 
       card.getByRole("button", { name: "Save post", exact: true }),
     ).toHaveAttribute("aria-pressed", "true");
     await card.getByRole("button", { name: "Repost", exact: true }).click();
+    await a.bringToFront();
     await a.getByRole("button", { name: "Activity", exact: true }).click();
     await expect(a.locator(".activity-card")).toHaveCount(4);
+    for (const item of await a.locator(".activity-card").all()) {
+      await item.scrollIntoViewIfNeeded();
+      await expect(item).not.toHaveClass(/unread/);
+    }
+    await a
+      .locator(".activity-card")
+      .first()
+      .getByRole("button", { name: `View @${bn} profile` })
+      .click();
+    const profile = a.getByRole("region", { name: "User profile" });
+    await expect(
+      profile.getByRole("button", { name: "Follow Back", exact: true }),
+    ).toBeVisible();
+    await profile
+      .getByRole("button", { name: "Follow Back", exact: true })
+      .click();
+    await expect(
+      profile.getByRole("button", { name: "Unfollow", exact: true }),
+    ).toBeVisible();
+    await profile
+      .getByRole("button", { name: "Unfollow", exact: true })
+      .click();
+    await expect(
+      profile.getByRole("button", { name: "Follow Back", exact: true }),
+    ).toBeVisible();
+    await a.evaluate(() => localStorage.setItem("message-theme", "coloured"));
+    await a.reload();
+    await expect(a.locator("html")).toHaveAttribute("data-theme", "coloured");
+    await a.getByRole("button", { name: "Your profile", exact: true }).click();
+    await expect(a.getByRole("region", { name: "User profile" })).toContainText(
+      "2 Posts",
+    );
+    await a.screenshot({ path: "test-results/coloured-profile.png" });
+
     await a.getByRole("button", { name: "Home", exact: true }).click();
     await a.getByRole("textbox", { name: "Find people" }).fill(bn);
     const person = a.locator(".person-card").filter({ hasText: bn });
