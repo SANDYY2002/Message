@@ -18,6 +18,9 @@ export default function Profile({
   onLogout,
   close,
   notificationHost,
+  onSignOut,
+  theme,
+  setTheme,
 }) {
   const dialog = useRef(null);
   const [tab, setTab] = useState("account");
@@ -319,6 +322,20 @@ export default function Profile({
             <button type="submit">Change password and sign out</button>
           </fieldset>
         </form>
+        <fieldset disabled={busy}>
+          <legend>Appearance</legend>
+          <label>
+            Theme
+            <select value={theme} onChange={(e) => setTheme(e.target.value)}>
+              <option value="system">Use device setting</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </label>
+        </fieldset>
+        <button disabled={busy} onClick={() => action(onSignOut)}>
+          Sign out of Message
+        </button>
       </section>
     </dialog>
   );

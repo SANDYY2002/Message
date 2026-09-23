@@ -682,6 +682,7 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
         { text, file, clientId: draft.current.id },
         setProgress,
       );
+      if (selected.incomingRequest) setInbox("inbox");
       if (active.current === cid) {
         setMessages((p) => merge(p, [latestMessage(d.message)]));
         setText("");
@@ -853,6 +854,10 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
           onActivityCount={setActivityCount}
           focusPost={focusPost}
           onClearPost={(pid) => {
+            const url = new URL(location.href);
+            if (pid) url.searchParams.set("post", pid);
+            else url.searchParams.delete("post");
+            history.replaceState(null, "", url.pathname + url.search);
             setFocusPost(pid || null);
             if (pid) setPage("posts");
           }}
@@ -984,12 +989,16 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
               <strong>
                 {search
                   ? "No conversations found"
-                  : "Your next hello starts here"}
+                  : inbox === "requests"
+                    ? "No message requests"
+                    : "Your next hello starts here"}
               </strong>
               <p>
                 {search
                   ? "Try a different name."
-                  : "Find a friend by username and start talking."}
+                  : inbox === "requests"
+                    ? "New introductions appear here for you to accept or decline."
+                    : "Find a friend by username and start talking."}
               </p>
               {!search && (
                 <button
@@ -1353,6 +1362,9 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
           notificationHost={setNotificationTarget}
           onUpdate={onUserChange}
           onLogout={onLogout}
+          onSignOut={logout}
+          theme={theme}
+          setTheme={setTheme}
           close={() => setProfileOpen(false)}
         />
       )}

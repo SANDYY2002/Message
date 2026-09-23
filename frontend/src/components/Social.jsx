@@ -104,17 +104,19 @@ export default function Social({
       setPeople([]);
       changed();
     };
+    socket?.on("user:updated", changed);
     socket?.on("social:changed", changed);
     socket?.on("relationships:changed", relationships);
     socket?.on("activity:new", changed);
     socket?.on("activity:read", changed);
     return () => {
+      socket?.off("user:updated", changed);
       socket?.off("social:changed", changed);
       socket?.off("relationships:changed", relationships);
       socket?.off("activity:new", changed);
       socket?.off("activity:read", changed);
     };
-  }, [socket, page, mode, focusPost]);
+  }, [socket, page, mode, focusPost, search]);
   useEffect(() => {
     let alive = true;
     const timer = setTimeout(
