@@ -6,6 +6,7 @@ import { member, emitConversation } from "./chat.js";
 export function setupRealtime(io) {
   const online = new Map();
   const calls = createCalls(io);
+  io.endBlockedCalls = (a, b) => calls.block(a, b);
   io.use(async (socket, next) => {
     try {
       socket.data.auth = await authenticate(socket.handshake.headers);
@@ -43,6 +44,7 @@ export function setupRealtime(io) {
       try {
         const cid = id(data?.conversationId),
           c = await member(cid, user.id);
+        if (c.kind !== "group" && c.request_status !== "accepted") return;
         await emitConversation(io, c, "typing", {
           conversationId: cid,
           userId: user.id,

@@ -228,6 +228,15 @@ test("real MySQL authentication, chat, media, sockets, and access controls", asy
       assert.equal(b.data.id, conversation);
       assert.equal(
         (
+          await request(`/conversations/${conversation}/accept`, {
+            user: bob,
+            body: {},
+          })
+        ).res.status,
+        204,
+      );
+      assert.equal(
+        (
           await request(`/conversations/${conversation}/messages`, {
             user: eve,
           })
@@ -675,6 +684,11 @@ test("calls enforce membership and device ownership, relay signals, and persist 
   });
   assert.equal(created.res.status, 201, JSON.stringify(created.data));
   const cid = created.data.conversation?.id || created.data.id;
+  assert.equal(
+    (await request(`/conversations/${cid}/accept`, { user: callee, body: {} }))
+      .res.status,
+    204,
+  );
   const a = await socketFor(caller),
     b = await socketFor(callee),
     b2 = await socketFor(callee),

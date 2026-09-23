@@ -34,6 +34,9 @@ test("two users connect video and voice, mute, hang up, and see call history", a
       .getByLabel("Password", { exact: true })
       .fill("safe-password-123");
     await page.locator(".auth-submit").click();
+    await page
+      .getByRole("button", { name: "Conversations", exact: true })
+      .click();
     await expect(page.getByText("Connected", { exact: true })).toBeVisible();
   }
   try {
@@ -48,6 +51,15 @@ test("two users connect video and voice, mute, hang up, and see call history", a
       .fill(`callbob_${suffix}`);
     await a
       .getByRole("button", { name: new RegExp(`callbob.*callbob_${suffix}`) })
+      .click();
+    await a
+      .getByRole("textbox", { name: "Message", exact: true })
+      .fill("Can we call?");
+    await a.getByRole("button", { name: "Send message", exact: true }).click();
+    await b.getByRole("button", { name: /Message Requests/ }).click();
+    await b.locator(".conversation").filter({ hasText: "callalice" }).click();
+    await b
+      .getByRole("button", { name: "Accept request", exact: true })
       .click();
     for (const kind of ["Video", "Voice"]) {
       await a

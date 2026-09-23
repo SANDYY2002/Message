@@ -1,3 +1,4 @@
+import Social from "./components/Social";
 import Profile, { presetImage } from "./components/Profile";
 import Groups from "./components/Groups";
 import Notifications from "./components/Notifications";
@@ -19,6 +20,10 @@ import {
   Send,
   ShieldCheck,
   Settings,
+  Home,
+  Newspaper,
+  Bell,
+  Ban,
   Sun,
   Video,
   Users,
@@ -339,6 +344,30 @@ function Auth({ onLogin, theme, setTheme }) {
   );
 }
 function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
+  const [page, setPage] = useState(() => {
+    if (new URL(location.href).searchParams.has("post")) return "posts";
+    try {
+      const saved = sessionStorage.getItem(`message-page:${user.id}`);
+      return ["home", "posts", "activity", "messages"].includes(saved)
+        ? saved
+        : "home";
+    } catch {
+      return "home";
+    }
+  });
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(`message-page:${user.id}`, page);
+    } catch {}
+  }, [page, user.id]);
+  const pageRef = useRef("home");
+  pageRef.current = page;
+  const [inbox, setInbox] = useState("inbox");
+  const [activityCount, setActivityCount] = useState(0);
+  const [focusPost, setFocusPost] = useState(() => {
+    const n = Number(new URL(location.href).searchParams.get("post"));
+    return Number.isSafeInteger(n) && n > 0 ? n : null;
+  });
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationTarget, setNotificationTarget] = useState(null);
   const [callSocket, setCallSocket] = useState(null);
@@ -465,6 +494,22 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
     s.on("session:revoked", () =>
       window.dispatchEvent(new Event("session-expired")),
     );
+    const activityRefresh = () =>
+      api("/activities")
+        .then((d) => setActivityCount(d.unread))
+        .catch(() => {});
+    activityRefresh();
+    s.on("connect", activityRefresh);
+    s.on("activity:new", activityRefresh);
+    s.on("activity:read", activityRefresh);
+    s.on("relationships:changed", () => {
+      refreshList();
+      activityRefresh();
+      setMessages([]);
+      setLightbox(null);
+      setSearchOpen(false);
+      if (active.current) loadHistory(active.current);
+    });
     s.on("conversation:changed", refreshList);
     s.on("conversation:removed", ({ conversationId }) => {
       setConversations((old) => old.filter((c) => c.id !== conversationId));
@@ -516,7 +561,14 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
     if (activeId) loadHistory(activeId);
   }, [activeId]);
   useEffect(() => {
-    if (!activeId || historyLoading || !messages.length) return;
+    if (
+      page !== "messages" ||
+      !activeId ||
+      historyLoading ||
+      !messages.length ||
+      selected?.requestStatus !== "accepted"
+    )
+      return;
     const mark = async () => {
       if (document.visibilityState !== "visible" || !document.hasFocus())
         return;
@@ -536,7 +588,7 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
       document.removeEventListener("visibilitychange", mark);
       window.removeEventListener("focus", mark);
     };
-  }, [activeId, messages, historyLoading]);
+  }, [activeId, messages, historyLoading, page, selected?.requestStatus]);
   useEffect(() => {
     if (!olderLoading) bottom.current?.scrollIntoView({ behavior: "instant" });
   }, [messages.at(-1)?.id, activeId, typing]);
@@ -552,6 +604,7 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
     return () => window.removeEventListener("keydown", close);
   }, [lightbox, newChat]);
   function select(cid) {
+    setPage("messages");
     if (sendingRef.current || cid === active.current) return;
     if (active.current)
       drafts.current.set(active.current, { text, file, retry: draft.current });
@@ -652,24 +705,121 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
       setError(e.message);
     }
   }
-  const filtered = conversations.filter((c) =>
-    `${c.peer.displayName} ${c.peer.username}`
-      .toLowerCase()
-      .includes(search.toLowerCase()),
-  );
+  async function startMessage(uid) {
+    try {
+      const c = await post("/conversations", { userId: uid });
+      await refreshList();
+      setInbox("inbox");
+      select(c.id);
+    } catch (e) {
+      setError(e.message);
+      setPage("messages");
+    }
+  }
+  function navigate(next) {
+    if (sendingRef.current) return;
+    setPage(next);
+    setFocusPost(null);
+  }
+  async function requestAction(action) {
+    try {
+      await post(`/conversations/${activeId}/${action}`, {});
+      await refreshList();
+      if (action === "decline") select(null);
+      else setInbox("inbox");
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+  async function blockPeer() {
+    if (
+      !selected ||
+      selected.isGroup ||
+      !window.confirm(
+        `Block @${selected.peer.username}? This stops messages, calls and social interactions.`,
+      )
+    )
+      return;
+    try {
+      await api(`/blocks/${selected.peer.id}`, { method: "PUT" });
+      select(null);
+      await refreshList();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+  const requestCount = conversations.filter(
+    (c) => c.incomingRequest && c.lastMessage,
+  ).length;
+  const filtered = conversations
+    .filter((c) =>
+      inbox === "requests"
+        ? c.incomingRequest && c.lastMessage
+        : !c.incomingRequest,
+    )
+    .filter((c) =>
+      `${c.peer.displayName} ${c.peer.username}`
+        .toLowerCase()
+        .includes(search.toLowerCase()),
+    );
   return (
-    <main className={`chat-shell ${selected ? "conversation-open" : ""}`}>
+    <main
+      className={`chat-shell ${page !== "messages" ? "social-mode" : ""} ${selected ? "conversation-open" : ""}`}
+    >
       <nav className="rail" aria-label="Main navigation">
         <div className="rail-logo">
           <MessageCircle size={24} />
         </div>
-        <button
-          className="rail-active icon-button"
-          aria-label="Conversations"
-          onClick={() => !sending && select(null)}
-        >
-          <MessageCircle size={22} />
-        </button>
+        <div className="primary-nav-links">
+          <button
+            className={`icon-button ${page === "home" ? "rail-active" : ""}`}
+            aria-label="Home"
+            title="Home"
+            aria-current={page === "home" ? "page" : undefined}
+            onClick={() => navigate("home")}
+          >
+            <Home size={22} />
+            <span>Home</span>
+          </button>
+          <button
+            className={`icon-button ${page === "posts" ? "rail-active" : ""}`}
+            aria-label="Posts"
+            title="Posts"
+            aria-current={page === "posts" ? "page" : undefined}
+            onClick={() => navigate("posts")}
+          >
+            <Newspaper size={22} />
+            <span>Posts</span>
+          </button>
+          <button
+            className={`icon-button ${page === "activity" ? "rail-active" : ""}`}
+            aria-label="Activity"
+            title="Activity"
+            aria-current={page === "activity" ? "page" : undefined}
+            onClick={() => navigate("activity")}
+          >
+            <Bell size={22} />
+            <span>Activity</span>
+            {activityCount > 0 && (
+              <b className="nav-count">
+                {activityCount > 99 ? "99+" : activityCount}
+              </b>
+            )}
+          </button>
+          <button
+            className={`icon-button ${page === "messages" ? "rail-active" : ""}`}
+            aria-label="Conversations"
+            onClick={() => {
+              if (!sending) {
+                setPage("messages");
+                select(null);
+              }
+            }}
+          >
+            <MessageCircle size={22} />
+            <span>Chats</span>
+          </button>
+        </div>
         <div className="rail-bottom">
           <button
             className="icon-button nav-settings"
@@ -694,6 +844,20 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
           <Avatar user={user} />
         </div>
       </nav>
+      {page !== "messages" && (
+        <Social
+          page={page}
+          user={user}
+          socket={callSocket}
+          onMessage={startMessage}
+          onActivityCount={setActivityCount}
+          focusPost={focusPost}
+          onClearPost={(pid) => {
+            setFocusPost(pid || null);
+            if (pid) setPage("posts");
+          }}
+        />
+      )}
       <aside className="sidebar">
         <header className="sidebar-header">
           <Brand />
@@ -706,7 +870,8 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
           settingsTarget={notificationTarget}
           socket={callSocket}
           user={user}
-          activeId={activeId}
+          activeId={page === "messages" ? activeId : null}
+          onActivity={() => navigate("activity")}
           conversations={conversations}
           onOpen={select}
           sending={sending}
@@ -742,6 +907,20 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+        </div>
+        <div className="inbox-tabs">
+          <button
+            aria-pressed={inbox === "inbox"}
+            onClick={() => setInbox("inbox")}
+          >
+            Inbox
+          </button>
+          <button
+            aria-pressed={inbox === "requests"}
+            onClick={() => setInbox("requests")}
+          >
+            Message Requests {requestCount > 0 ? `(${requestCount})` : ""}
+          </button>
         </div>
         <div className="list-label">
           ALL CONVERSATIONS
@@ -787,7 +966,15 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
                     </span>
                     {c.unread > 0 && <b>{c.unread > 99 ? "99+" : c.unread}</b>}
                   </div>
-                  <small>@{c.peer.username}</small>
+                  <small>
+                    {c.requestStatus === "pending"
+                      ? c.incomingRequest
+                        ? "Wants to message you"
+                        : "Request sent · Awaiting acceptance"
+                      : c.isGroup
+                        ? `${c.memberCount} members`
+                        : `@${c.peer.username}`}
+                  </small>
                 </div>
               </button>
             ))
@@ -835,7 +1022,7 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
       <section className="chat-main">
         <Calls
           socket={callSocket}
-          selected={selected}
+          selected={selected?.requestStatus === "pending" ? null : selected}
           user={user}
           connected={connected}
         />
@@ -869,6 +1056,16 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
                   )}
                 </span>
               </div>
+              {!selected.isGroup && (
+                <button
+                  className="icon-button"
+                  aria-label="Block user"
+                  title="Block user"
+                  onClick={blockPeer}
+                >
+                  <Ban size={18} />
+                </button>
+              )}
               {selected.isGroup && (
                 <button
                   className="icon-button"
@@ -966,6 +1163,30 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
                 </>
               )}
             </div>
+            {selected.requestStatus === "pending" && (
+              <div className="request-banner" role="status">
+                <strong>
+                  {selected.incomingRequest
+                    ? "Message request"
+                    : "Awaiting acceptance"}
+                </strong>
+                <p>
+                  {selected.incomingRequest
+                    ? "Accept to chat or reply below to accept automatically. You can also decline or block this person."
+                    : "You can send one introduction. Calls and further messages unlock after acceptance."}
+                </p>
+                {selected.incomingRequest && (
+                  <div>
+                    <button onClick={() => requestAction("accept")}>
+                      Accept request
+                    </button>
+                    <button onClick={() => requestAction("decline")}>
+                      Decline request
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             <div
               className="composer-area"
               onDragOver={(e) => {

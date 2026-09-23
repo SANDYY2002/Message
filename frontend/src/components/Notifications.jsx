@@ -61,6 +61,7 @@ export default function Notifications({
   activeId,
   conversations,
   onOpen,
+  onActivity,
   sending,
 }) {
   const supported =
@@ -80,7 +81,14 @@ export default function Notifications({
   const latest = useRef(null),
     mounted = useRef(true),
     seen = useRef(new Set());
-  latest.current = { enabled, soundEnabled, activeId, onOpen, sending };
+  latest.current = {
+    enabled,
+    soundEnabled,
+    activeId,
+    onOpen,
+    onActivity,
+    sending,
+  };
   useEffect(() => {
     const unlock = () => {
       if (latest.current.soundEnabled)
@@ -153,7 +161,8 @@ export default function Notifications({
       );
       return;
     }
-    latest.current.onOpen(cid);
+    if (cid) latest.current.onOpen(cid);
+    else latest.current.onActivity?.();
     setToast(null);
     closeNotifications(user.id, cid);
   }
@@ -171,7 +180,7 @@ export default function Notifications({
     const url = new URL(location.href);
     if (Number(url.searchParams.get("notificationUser")) === user.id) {
       const cid = Number(url.searchParams.get("conversation"));
-      if (Number.isSafeInteger(cid) && cid > 0) open(cid);
+      if (Number.isSafeInteger(cid) && cid >= 0) open(cid);
       url.searchParams.delete("notificationUser");
       url.searchParams.delete("conversation");
       window.history.replaceState(
@@ -230,8 +239,17 @@ export default function Notifications({
         seen.current.delete(seen.current.values().next().value);
       const foreground =
         document.visibilityState === "visible" && document.hasFocus();
-      if (foreground && latest.current.activeId === m.conversationId) return;
-      setToast({ conversationId: m.conversationId, messageId: m.id });
+      if (
+        !m.social &&
+        foreground &&
+        latest.current.activeId === m.conversationId
+      )
+        return;
+      setToast({
+        conversationId: m.conversationId,
+        messageId: m.id,
+        social: m.social,
+      });
       void chime(m.id);
       if (
         foreground ||
@@ -261,19 +279,27 @@ export default function Notifications({
           if (
             document.visibilityState === "visible" &&
             document.hasFocus() &&
+            !m.social &&
             latest.current.activeId === m.conversationId
           )
             return;
-          await reg.showNotification("New message", {
-            body: "You have a new message in Message.",
-            silent: true,
-            tag: `message:${user.id}:${m.conversationId}`,
-            data: {
-              userId: user.id,
-              conversationId: m.conversationId,
-              clientUrl: location.href,
+          await reg.showNotification(
+            m.social ? "New activity" : "New message",
+            {
+              body: m.social
+                ? "You have new activity in Message."
+                : "You have a new message in Message.",
+              silent: true,
+              tag: m.social
+                ? `activity:${user.id}`
+                : `message:${user.id}:${m.conversationId}`,
+              data: {
+                userId: user.id,
+                conversationId: m.conversationId,
+                clientUrl: location.href,
+              },
             },
-          });
+          );
           try {
             localStorage.setItem(
               key,
@@ -296,8 +322,25 @@ export default function Notifications({
           );
       }
     };
+    const activity = (a) =>
+      received({
+        ...a,
+        id: `activity:${a.id}`,
+        social: true,
+        conversationId: 0,
+      });
+    const reset = () => {
+      setToast(null);
+      void closeNotifications(user.id);
+    };
+    socket.on("relationships:changed", reset);
     socket.on("message:new", received);
-    return () => socket.off("message:new", received);
+    socket.on("activity:new", activity);
+    return () => {
+      socket.off("relationships:changed", reset);
+      socket.off("message:new", received);
+      socket.off("activity:new", activity);
+    };
   }, [socket, user.id, supported]);
   async function toggle() {
     setNotice("");
@@ -424,7 +467,9 @@ export default function Notifications({
               onClick={() => open(toast.conversationId)}
               disabled={sending}
             >
-              New message · Open conversation
+              {toast.social
+                ? "New activity · Open activity"
+                : "New message · Open conversation"}
             </button>
             <button
               className="icon-button"

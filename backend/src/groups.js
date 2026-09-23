@@ -1,3 +1,4 @@
+import { allowInteraction } from "./relationships.js";
 import { query, transaction } from "./db.js";
 import { member, emitConversation } from "./chat.js";
 import { id, HttpError } from "./validation.js";
@@ -28,6 +29,8 @@ export function mountGroups(app, io, limiter) {
     if (users.length < 1)
       throw new HttpError(400, "Choose at least one other person.");
     const c = await transaction(async (q) => {
+      for (const a of [uid, ...users])
+        for (const b of users) await allowInteraction(a, b, q);
       const rows = await q(
         `SELECT id FROM users WHERE id IN (${users.map(() => "?").join(",")})`,
         users,
@@ -113,6 +116,11 @@ export function mountGroups(app, io, limiter) {
         throw new HttpError(400, "Groups can have at most 50 members.");
       if (!(await q("SELECT id FROM users WHERE id=?", [next])).length)
         throw new HttpError(404, "User not found.");
+      const members = await q(
+        "SELECT user_id FROM group_members WHERE conversation_id=?",
+        [cid],
+      );
+      for (const m of members) await allowInteraction(m.user_id, next, q);
       await q(
         "INSERT INTO group_members(conversation_id,user_id) VALUES(?,?)",
         [cid, next],

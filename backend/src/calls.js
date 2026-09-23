@@ -122,6 +122,11 @@ export function createCalls(
       attempts.set(user.id, Date.now());
       const conversationId = id(data.conversationId);
       const conversation = await membership(conversationId, user.id);
+      if (
+        conversation.request_status &&
+        conversation.request_status !== "accepted"
+      )
+        throw new Error("Accept the message request before calling.");
       if (conversation.kind === "group")
         throw new Error("Calls are available in direct conversations only.");
       const peer = otherUser(conversation, user.id);
@@ -176,6 +181,7 @@ export function createCalls(
       const c = owned(data, true);
       if (user.id !== c.calleeId || c.status !== "ringing")
         throw new Error("Call is no longer ringing.");
+      await membership(c.conversationId, user.id);
       c.calleeSocket = socket.id;
       c.status = "active";
       c.deadline = Date.now() + 4 * 3600000;
@@ -211,8 +217,9 @@ export function createCalls(
       );
       return {};
     });
-    on("call:signal", (data) => {
+    on("call:signal", async (data) => {
       const c = owned(data);
+      await membership(c.conversationId, user.id);
       if (c.status !== "active") throw new Error("Call has not been accepted.");
       if (Date.now() - signalWindow > 10000) {
         signalCount = 0;
@@ -257,6 +264,13 @@ export function createCalls(
   }
   return {
     attach,
+    async block(a, b) {
+      await serial(async () => {
+        for (const c of active.values())
+          if ([a, b].includes(c.callerId) && [a, b].includes(c.calleeId))
+            await finish(c, "ended");
+      });
+    },
     async close() {
       clearInterval(timer);
       await serial(async () => {

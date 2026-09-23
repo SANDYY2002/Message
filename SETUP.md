@@ -299,3 +299,15 @@ Profile settings includes six built-in illustrated avatars and initials, plus yo
 Click **Settings** in the sidebar. **Profile & account** contains avatar selection/upload, username and password changes. **Notifications & sound** contains browser alerts, the sound toggle and Test sound. Closing Settings keeps message alerts and sounds running.
 
 The **Settings** gear is in the left navigation panel on desktop. On mobile, the same navigation controls appear in a bottom bar, accessible from both the inbox and an open chat.
+
+## Home, Posts, Activity and Message Requests
+
+After updating, stop the server, run `npm ci` and `npm run db:migrate`, then `npm run dev`. Migration 6 adds social tables and request state without resetting existing accounts, messages or groups. Existing direct conversations remain accepted; new conversations require recipient consent.
+
+**Home** and **Posts** both offer the same text-post composer (up to 4,000 characters) and Everyone, Following, My posts and Saved feeds. Posts are visible to signed-in users, subject to blocking. Users can like, comment, repost, copy a post link, save privately, and delete their own posts/comments. Deleting a post removes its comments and reposts. Image/video attachments remain supported in chats; this release's social posts are text posts.
+
+Use **Find your people** to follow/unfollow or message users. **Activity** stores follows, likes, comments and reposts, with unread states and links to posts. Notification and sound preferences in Settings apply to these real-time alerts too. Message alerts continue separately. Keep the app open and connected for browser alerts/sounds; the Activity list persists when the app is closed. Self-actions and repeated likes/follows do not create duplicate activity entries.
+
+**Chats → Message Requests** contains new incoming introductions. A sender can send one introduction (text or an attachment) while waiting. Recipients can review, accept, decline, block, or reply to accept automatically. Pending requests do not allow calls or typing/read receipts. Declining closes that conversation so the sender cannot repeatedly recreate the request.
+
+Blocking works in both directions for contact and social engagement: no messaging, calls, follows, reactions, comments or repost interactions, and neither user's posts appear to the other. Follows and mutual activity entries are removed. Shared groups remain intact, but blocked members' messages, history, search results, media and live typing are hidden from each other; other members continue normally. Blocked pairs cannot be added to a new shared group. Existing copies of already-seen content cannot be erased. Find **Blocked users** below the people list to unblock; prior follows and closed message requests are not automatically restored.

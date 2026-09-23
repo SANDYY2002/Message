@@ -1,3 +1,4 @@
+import { visibleTo } from "./relationships.js";
 import { transaction, query } from "./db.js";
 import { member, emitConversation } from "./chat.js";
 import { HttpError, id, publicMessage, editInput } from "./validation.js";
@@ -16,7 +17,7 @@ export function mountMessageManagement(app, io, limiter) {
     const term = req.query.q.trim().toLowerCase();
     const before = req.query.before ? id(req.query.before) : 4294967295;
     const rows = await query(
-      "SELECT m.*,u.display_name AS sender_name FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.conversation_id=? AND m.deleted_at IS NULL AND m.id<? AND LOCATE(?,LOWER(m.text))>0 ORDER BY m.id DESC LIMIT 31",
+      `SELECT m.*,u.display_name AS sender_name FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.conversation_id=? AND m.deleted_at IS NULL AND m.id<? AND ${visibleTo(req.auth.user.id, "m.sender_id")} AND LOCATE(?,LOWER(m.text))>0 ORDER BY m.id DESC LIMIT 31`,
       [cid, before, term],
     );
     const matches = rows.slice(0, 30);

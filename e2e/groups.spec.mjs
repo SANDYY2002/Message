@@ -22,6 +22,9 @@ test("create a group, exchange messages, show sender names and remove a member",
       .getByLabel("Password", { exact: true })
       .fill("safe-password-123");
     await page.locator(".auth-submit").click();
+    await page
+      .getByRole("button", { name: "Conversations", exact: true })
+      .click();
     await expect(page.getByText("Connected", { exact: true })).toBeVisible();
   }
   try {

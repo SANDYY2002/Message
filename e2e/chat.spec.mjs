@@ -31,6 +31,9 @@ test("two people can sign up, chat, share media, reconnect, and use mobile dark 
       .getByLabel("Password", { exact: true })
       .fill("safe-password-123");
     await page.locator(".auth-submit").click();
+    await page
+      .getByRole("button", { name: "Conversations", exact: true })
+      .click();
     await expect(
       page.getByRole("heading", { name: /Good conversations/ }),
     ).toBeVisible();
@@ -61,6 +64,7 @@ test("two people can sign up, chat, share media, reconnect, and use mobile dark 
     .getByRole("textbox", { name: "Message", exact: true })
     .fill("Hello from Alice 👋");
   await alice.getByRole("button", { name: "Send message" }).click();
+  await bob.getByRole("button", { name: /Message Requests/ }).click();
   await bob
     .getByRole("button", { name: new RegExp("Alice.*Hello from Alice") })
     .click();
@@ -69,6 +73,9 @@ test("two people can sign up, chat, share media, reconnect, and use mobile dark 
       .locator(".message-bubble")
       .getByText("Hello from Alice 👋", { exact: true }),
   ).toBeVisible();
+  await bob
+    .getByRole("button", { name: "Accept request", exact: true })
+    .click();
   await expect(alice.getByLabel("Read", { exact: true })).toBeVisible();
   await bob
     .getByRole("textbox", { name: "Message", exact: true })

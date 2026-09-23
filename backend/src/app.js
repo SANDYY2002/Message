@@ -1,3 +1,6 @@
+import { mountSocial } from "./social.js";
+import { mountMessagingPolicy, prepareSend } from "./messaging-policy.js";
+import { allowInteraction, lockUsers, visibleTo } from "./relationships.js";
 import { mountProfile } from "./profile.js";
 import { publicUser } from "./users.js";
 import { mountGroups } from "./groups.js";
@@ -120,6 +123,8 @@ export async function createApp(io) {
   mountMessageManagement(app, io, limiter);
   mountGroups(app, io, limiter);
   mountProfile(app, io, limiter);
+  mountSocial(app, io, limiter);
+  mountMessagingPolicy(app, io, limiter);
   app.get("/api/users", async (req, res) => {
     const search = String(req.query.q || "")
       .trim()
@@ -127,7 +132,7 @@ export async function createApp(io) {
       .slice(0, 60);
     // LOCATE treats user input literally, including % and _.
     const users = await query(
-      "SELECT id,username,display_name,avatar_preset,avatar_path,avatar_revision FROM users WHERE id<>? AND (LOCATE(?,username)>0 OR LOCATE(?,LOWER(display_name))>0) ORDER BY username LIMIT 30",
+      `SELECT id,username,display_name,avatar_preset,avatar_path,avatar_revision FROM users u WHERE id<>? AND ${visibleTo(req.auth.user.id, "u.id")} AND (LOCATE(?,username)>0 OR LOCATE(?,LOWER(display_name))>0) ORDER BY username LIMIT 30`,
       [req.auth.user.id, search, search],
     );
     res.json({ users: users.map(publicUser) });
@@ -137,20 +142,26 @@ export async function createApp(io) {
     const rows = await query(
       `SELECT c.*,u.id AS peer_id,u.username,u.display_name,u.avatar_preset,u.avatar_path,u.avatar_revision,
    (SELECT COUNT(*) FROM group_members g WHERE g.conversation_id=c.id) AS member_count,
-   (SELECT COUNT(*) FROM messages m WHERE m.conversation_id=c.id AND m.sender_id<>? AND m.deleted_at IS NULL AND m.id>IF(c.kind='group',gm.read_id,IF(c.user_low=?,c.low_read_id,c.high_read_id))) AS unread,
-   (SELECT m.id FROM messages m WHERE m.conversation_id=c.id ORDER BY m.id DESC LIMIT 1) AS last_id,
-   (SELECT m.text FROM messages m WHERE m.conversation_id=c.id ORDER BY m.id DESC LIMIT 1) AS last_text,
-   (SELECT m.media_mime FROM messages m WHERE m.conversation_id=c.id ORDER BY m.id DESC LIMIT 1) AS last_mime,
-   (SELECT m.deleted_at FROM messages m WHERE m.conversation_id=c.id ORDER BY m.id DESC LIMIT 1) AS last_deleted
+   (SELECT COUNT(*) FROM messages m WHERE m.conversation_id=c.id AND ${visibleTo(uid, "m.sender_id")} AND m.sender_id<>? AND m.deleted_at IS NULL AND m.id>IF(c.kind='group',gm.read_id,IF(c.user_low=?,c.low_read_id,c.high_read_id))) AS unread,
+   (SELECT m.id FROM messages m WHERE m.conversation_id=c.id AND ${visibleTo(uid, "m.sender_id")} ORDER BY m.id DESC LIMIT 1) AS last_id,
+   (SELECT m.text FROM messages m WHERE m.conversation_id=c.id AND ${visibleTo(uid, "m.sender_id")} ORDER BY m.id DESC LIMIT 1) AS last_text,
+   (SELECT m.media_mime FROM messages m WHERE m.conversation_id=c.id AND ${visibleTo(uid, "m.sender_id")} ORDER BY m.id DESC LIMIT 1) AS last_mime,
+   (SELECT m.deleted_at FROM messages m WHERE m.conversation_id=c.id AND ${visibleTo(uid, "m.sender_id")} ORDER BY m.id DESC LIMIT 1) AS last_deleted
    FROM conversations c LEFT JOIN users u ON u.id=IF(c.user_low=?,c.user_high,c.user_low)
    LEFT JOIN group_members gm ON gm.conversation_id=c.id AND gm.user_id=?
-   WHERE c.user_low=? OR c.user_high=? OR gm.user_id IS NOT NULL ORDER BY c.updated_at DESC,c.id DESC LIMIT 200`,
+   WHERE (c.user_low=? OR c.user_high=? OR gm.user_id IS NOT NULL) AND (c.kind='group' OR (c.request_status<>'declined' AND ${visibleTo(uid, "u.id")})) ORDER BY c.updated_at DESC,c.id DESC LIMIT 200`,
       [uid, uid, uid, uid, uid, uid],
     );
     res.json({
       conversations: rows.map((c) => ({
         id: c.id,
         isGroup: c.kind === "group",
+        requestStatus: c.request_status,
+        requestSender: c.request_sender,
+        incomingRequest:
+          c.kind !== "group" &&
+          c.request_status === "pending" &&
+          c.request_sender !== uid,
         ownerId: c.owner_id,
         memberCount: Number(c.member_count),
         peer: {
@@ -195,14 +206,21 @@ export async function createApp(io) {
         throw new HttpError(400, "Choose someone else to message.");
       if (!(await query("SELECT id FROM users WHERE id=?", [peer])).length)
         throw new HttpError(404, "User not found.");
-      await query(
-        "INSERT INTO conversations(user_low,user_high) VALUES(?,?) ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)",
-        [Math.min(uid, peer), Math.max(uid, peer)],
-      );
-      const [c] = await query(
-        "SELECT * FROM conversations WHERE user_low=? AND user_high=?",
-        [Math.min(uid, peer), Math.max(uid, peer)],
-      );
+      const c = await transaction(async (q) => {
+        await lockUsers(q, [uid, peer]);
+        await allowInteraction(uid, peer, q);
+        await q(
+          "INSERT INTO conversations(user_low,user_high,request_status,request_sender) VALUES(?,?,'pending',?) ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)",
+          [Math.min(uid, peer), Math.max(uid, peer), uid],
+        );
+        const [c] = await q(
+          "SELECT * FROM conversations WHERE user_low=? AND user_high=? FOR UPDATE",
+          [Math.min(uid, peer), Math.max(uid, peer)],
+        );
+        if (c.request_status === "declined")
+          throw new HttpError(403, "This message request is closed.");
+        return c;
+      });
       await emitConversation(io, c, "conversation:changed", {
         conversationId: c.id,
       });
@@ -215,7 +233,7 @@ export async function createApp(io) {
       c = await member(cid, uid);
     const before = req.query.before ? id(req.query.before) : 4294967295;
     const rows = await query(
-      "SELECT m.*,u.display_name AS sender_name FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.conversation_id=? AND m.id<? ORDER BY m.id DESC LIMIT 51",
+      `SELECT m.*,u.display_name AS sender_name FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.conversation_id=? AND m.id<? AND ${visibleTo(uid, "m.sender_id")} ORDER BY m.id DESC LIMIT 51`,
       [cid, before],
     );
     const hasMore = rows.length > 50;
@@ -236,6 +254,7 @@ export async function createApp(io) {
       mid = id(req.body?.messageId);
     const c = await transaction(async (q) => {
       const c = await member(cid, uid, q, true);
+      if (c.kind !== "group" && c.request_status !== "accepted") return null;
       if (
         !(
           await q("SELECT id FROM messages WHERE id=? AND conversation_id=?", [
@@ -262,11 +281,12 @@ export async function createApp(io) {
       ]);
       return c;
     });
-    await emitConversation(io, c, "conversation:read", {
-      conversationId: cid,
-      userId: uid,
-      messageId: mid,
-    });
+    if (c)
+      await emitConversation(io, c, "conversation:read", {
+        conversationId: cid,
+        userId: uid,
+        messageId: mid,
+      });
     res.sendStatus(204);
   });
   const upload = multer({
@@ -327,8 +347,13 @@ export async function createApp(io) {
         }
         const result = await transaction(async (q) => {
           // Serialize sends per sender to enforce quota and idempotency across conversations.
-          await q("SELECT id FROM users WHERE id=? FOR UPDATE", [uid]);
-          await member(cid, uid, q, true);
+          await lockUsers(
+            q,
+            req.conversation.kind === "group"
+              ? [uid]
+              : [req.conversation.user_low, req.conversation.user_high],
+          );
+          const currentConversation = await member(cid, uid, q, true);
           const [existing] = await q(
             "SELECT * FROM messages WHERE sender_id=? AND client_id=?",
             [uid, clientId],
@@ -338,6 +363,7 @@ export async function createApp(io) {
               throw new HttpError(409, "Retry identifier already used.");
             return { message: existing, created: false };
           }
+          await prepareSend(currentConversation, uid, q);
           if (req.file) {
             const [used] = await q(
               "SELECT COALESCE(SUM(media_size),0) AS bytes FROM messages WHERE sender_id=?",
@@ -391,6 +417,7 @@ export async function createApp(io) {
     if (!m?.media_path || m.deleted_at)
       throw new HttpError(404, "Media not found.");
     await member(m.conversation_id, req.auth.user.id);
+    await allowInteraction(req.auth.user.id, m.sender_id);
     res.type(m.media_mime);
     res.setHeader("Content-Disposition", "inline");
     res.sendFile(

@@ -67,6 +67,9 @@ test("message notifications are opt-in, private, actionable, and disabled on req
       .getByLabel("Password", { exact: true })
       .fill("safe-password-123");
     await page.locator(".auth-submit").click();
+    await page
+      .getByRole("button", { name: "Conversations", exact: true })
+      .click();
     await expect(page.getByText("Connected", { exact: true })).toBeVisible();
   }
   async function openSettings() {
@@ -135,6 +138,18 @@ test("message notifications are opt-in, private, actionable, and disabled on req
     await b.evaluate(() => {
       window.__notificationFocus = false;
     });
+    // Accept the first message request before testing subsequent message alerts.
+    const cid = await b.evaluate(async () => {
+      const d = await (await fetch("/api/conversations")).json();
+      return d.conversations.find((c) => c.incomingRequest).id;
+    });
+    await b.evaluate(async (cid) => {
+      await fetch(`/api/conversations/${cid}/accept`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+    }, cid);
     await send("Secret content must never appear in system banners");
     await expect
       .poll(async () => await requests())

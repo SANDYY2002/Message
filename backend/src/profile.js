@@ -1,3 +1,4 @@
+import { allowInteraction } from "./relationships.js";
 import bcrypt from "bcryptjs";
 import multer from "multer";
 import sharp from "sharp";
@@ -126,6 +127,7 @@ export function mountProfile(app, io, limiter) {
     },
   );
   app.get("/api/avatars/:userId", async (req, res) => {
+    await allowInteraction(req.auth.user.id, id(req.params.userId));
     const [row] = await query("SELECT avatar_path FROM users WHERE id=?", [
       id(req.params.userId),
     ]);
