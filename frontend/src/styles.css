@@ -943,7 +943,7 @@ button:active:not(:disabled) {
   max-width: 100%;
   max-height: 340px;
   border-radius: 10px;
-  background: #102018;
+  background: #150f28;
 }
 .message-bubble:has(img),
 .message-bubble:has(video) {
@@ -1196,7 +1196,7 @@ button:active:not(:disabled) {
   position: fixed;
   inset: 0;
   z-index: 10;
-  background: #0e25195e;
+  background: #1a12305e;
   backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
@@ -1577,7 +1577,7 @@ button:active:not(:disabled) {
   box-shadow: var(--shadow);
 }
 .message-modal::backdrop {
-  background: #0e251966;
+  background: #1a123066;
   backdrop-filter: blur(5px);
 }
 .modal-content {
@@ -1897,10 +1897,10 @@ button:active:not(:disabled) {
   gap: 12px;
   max-width: calc(100vw - 32px);
   padding: 14px 18px;
-  border-radius: 16px;
-  background: #173c2b;
+  border-radius: 18px;
+  background: var(--bubble-grad);
   color: #fff;
-  box-shadow: 0 8px 32px #0004;
+  box-shadow: 0 10px 32px #8a5bea45;
 }
 .message-notification-toast button {
   background: none;
@@ -2096,7 +2096,7 @@ button:active:not(:disabled) {
   margin-bottom: 18px;
 }
 .avatar-presets button[aria-pressed="true"] {
-  outline: 2px solid #66a786;
+  outline: 2px solid var(--accent);
 }
 .profile-preview {
   display: block;
@@ -2488,7 +2488,7 @@ button:active:not(:disabled) {
   height: 42px;
   border-radius: 14px;
   color: var(--bg);
-  box-shadow: 0 4px 10px #174c3314;
+  box-shadow: 0 4px 10px #4b2ca014;
 }
 .group-new {
   margin: 0 24px 5px;
@@ -2637,7 +2637,7 @@ button:active:not(:disabled) {
   border-radius: 20px;
   padding: 10px 12px;
   gap: 10px;
-  box-shadow: 0 5px 22px #173a2708;
+  box-shadow: 0 5px 22px #4b2ca008;
 }
 .composer:focus-within {
   border-color: var(--accent);
@@ -3202,35 +3202,38 @@ button:active:not(:disabled) {
 
 :root[data-theme="coloured"] {
   color-scheme: light;
-  --bg: #f5f0fc;
-  --surface: #fffafd;
-  --surface-soft: #eee6fa;
-  --text: #34234e;
-  --muted: #746383;
-  --line: #e2d6ef;
-  --accent: #7543b5;
-  --accent-hover: #5c2d96;
-  --accent-light: #eaddfb;
-  --bubble: #fffafd;
-  --mine: #e8d8fa;
-  --shadow: 0 18px 55px #693ca51a;
-  --error: #a12d50;
-  --error-bg: #ffedf2;
+  --bg: #fff3e6;
+  --surface: #fffdfa;
+  --surface-soft: #ffe9d3;
+  --text: #4a2a17;
+  --muted: #9c7a5c;
+  --line: #ffddb0;
+  --accent: #ff7a3d;
+  --accent-2: #ffb703;
+  --accent-hover: #e8631f;
+  --accent-light: #ffe6ce;
+  --bubble: #fffdfa;
+  --mine: #ffdcac;
+  --bubble-grad: linear-gradient(135deg, #ff7a3d 0%, #ffb703 100%);
+  --bubble-glow: 0 10px 24px #ff7a3d3d;
+  --shadow: 0 18px 55px #b8551a1a;
+  --error: #d43a3a;
+  --error-bg: #ffe7e2;
   background: var(--bg);
   color: var(--text);
 }
 [data-theme="coloured"] .social-page,
 [data-theme="coloured"] .auth-page {
   background:
-    radial-gradient(ellipse at top right, #ffe4d8a8, transparent 55%),
-    radial-gradient(ellipse at bottom left, #dbceff80, transparent 60%),
+    radial-gradient(ellipse at top right, #ffd9a8a8, transparent 55%),
+    radial-gradient(ellipse at bottom left, #ffb0b080, transparent 60%),
     var(--bg);
 }
 [data-theme="coloured"] .nav-rail {
-  background: #ede1f8;
+  background: #ffe9d3;
 }
 [data-theme="coloured"] .social-header {
-  background: linear-gradient(115deg, #ecdcff, #ffe5df);
+  background: linear-gradient(115deg, #ffe0bf, #ffd2d2);
 }
 .profile-link,
 .post-author .profile-link {
