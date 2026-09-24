@@ -34,7 +34,21 @@ export async function start(port = config.port) {
   io.attach(server);
   const stopCleanup = setupRealtime(io);
   const stopMediaCleanup = startMediaCleanup();
-  await new Promise((resolve) => server.listen(port, "0.0.0.0", resolve));
+  try {
+    await new Promise((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(port, "0.0.0.0", () => {
+        server.off("error", reject);
+        resolve();
+      });
+    });
+  } catch (error) {
+    await stopCleanup();
+    await stopMediaCleanup();
+    io.close();
+    await pool.end();
+    throw error;
+  }
   return {
     server,
     io,
@@ -47,14 +61,31 @@ export async function start(port = config.port) {
   };
 }
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const runtime = await start();
+  let runtime;
+  try {
+    runtime = await start();
+  } catch (error) {
+    console.error("Message startup failed:", error.code || error.message);
+    await pool.end().catch(() => {});
+    process.exit(1);
+  }
   console.log(`Message API listening on port ${config.port}`);
   let stopping = false;
   const stop = async () => {
     if (stopping) return;
     stopping = true;
-    await runtime.close();
-    process.exit(0);
+    const deadline = setTimeout(() => {
+      console.error("Graceful shutdown timed out");
+      process.exit(1);
+    }, 30000);
+    deadline.unref();
+    try {
+      await runtime.close();
+      process.exit(0);
+    } catch (error) {
+      console.error("Shutdown failed:", error.code || error.message);
+      process.exit(1);
+    }
   };
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);

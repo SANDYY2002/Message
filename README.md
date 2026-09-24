@@ -96,3 +96,7 @@ Groups can start with you and **one other registered user**. Enter a name, selec
 ### Profiles and appearance
 
 Open a person’s name or avatar to see their bio, posts, followers and following. Follow buttons show Follow, Follow Back or Unfollow according to your relationship. Edit your bio in Settings. Activity notifications are marked read when visible in the focused app; unseen notifications remain unread. Settings → Appearance includes the coloured Aurora theme alongside system, light and dark modes. Theme selection persists on this device. After updating, run `npm run db:migrate` to add profile bios.
+
+## Production hosting
+
+See [PRODUCTION.md](PRODUCTION.md) for the Docker/HTTPS deployment, secrets, persistent volumes, TURN requirements, backup/restore, updates and operational limits. This serves the complete app on one domain; Vercel alone does not run this persistent Socket.IO server or retain uploaded files.

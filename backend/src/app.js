@@ -12,7 +12,7 @@ import bcrypt from "bcryptjs";
 import multer from "multer";
 import { fileTypeFromFile } from "file-type";
 import { randomUUID } from "node:crypto";
-import { mkdir, unlink } from "node:fs/promises";
+import { access, mkdir, unlink } from "node:fs/promises";
 import path from "node:path";
 import { config, backendDir } from "./config.js";
 import { query, transaction } from "./db.js";
@@ -432,7 +432,16 @@ export async function createApp(io) {
     next(new HttpError(404, "Endpoint not found.")),
   );
   if (config.production) {
-    app.use(express.static(path.join(backendDir, "../frontend/dist")));
+    const frontend = path.join(backendDir, "../frontend/dist");
+    await access(path.join(frontend, "index.html"));
+    app.use(
+      "/assets",
+      express.static(path.join(frontend, "assets"), {
+        immutable: true,
+        maxAge: "1y",
+      }),
+    );
+    app.use(express.static(frontend, { maxAge: 0 }));
     app.get("/{*path}", (_req, res) =>
       res.sendFile(path.join(backendDir, "../frontend/dist/index.html")),
     );

@@ -51,3 +51,23 @@ jobs:
           retention-days: 7
       - run: npm run build
       - run: npm audit --omit=dev --audit-level=high
+  production:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node scripts/init-production.mjs
+      - run: docker compose config --quiet
+      - run: docker compose build
+      - run: docker compose up -d --wait app
+      - run: docker compose exec -T app node --input-type=module < scripts/production-smoke.mjs
+      - run: docker compose run --rm --no-deps proxy caddy validate --config /etc/caddy/Caddyfile
+      - run: bash scripts/backup.sh
+      - run: bash scripts/restore.sh "$(find backups -mindepth 1 -maxdepth 1 -type d | head -1)" --replace-data
+      - run: docker compose exec -T -e SMOKE_RESTORE_CHECK=1 app node --input-type=module < scripts/production-smoke.mjs
+      - if: failure()
+        run: docker compose logs --tail=100
+      - if: always()
+        run: docker compose down
