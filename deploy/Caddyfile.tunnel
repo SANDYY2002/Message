@@ -1,0 +1,11 @@
+{
+  auto_https off
+}
+:8080 {
+  # This gateway has no host ports. Only the private Docker network reaches it.
+  # Cloudflare overwrites CF-Connecting-IP at its edge. Do not publish this port.
+  reverse_proxy app:4000 {
+    header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+    header_up X-Forwarded-Proto https
+  }
+}

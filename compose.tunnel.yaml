@@ -1,0 +1,98 @@
+name: message
+x-app: &app
+  image: message:${APP_TAG:-local}
+  build: .
+  init: true
+  environment:
+    NODE_ENV: production
+    PORT: 4000
+    PUBLIC_ORIGIN: https://${APP_DOMAIN:?Set APP_DOMAIN in .env}
+    COOKIE_SECURE: "true"
+    TRUST_PROXY: 1
+    DB_HOST: db
+    DB_NAME: message
+    DB_USER: message
+    DB_PASSWORD_FILE: /run/secrets/db_password
+    UPLOAD_DIR: /app/backend/uploads
+    MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-25}
+    MAX_USER_STORAGE_MB: ${MAX_USER_STORAGE_MB:-1024}
+    STUN_URL: ${STUN_URL:-}
+    TURN_URLS: ${TURN_URLS:-}
+    TURN_SECRET_FILE: /run/secrets/turn_secret
+  secrets: [db_password, turn_secret]
+  volumes: [uploads:/app/backend/uploads]
+  read_only: true
+  tmpfs: ["/tmp:size=64m,mode=1777"]
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  logging:
+    driver: json-file
+    options: { max-size: 10m, max-file: "3" }
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: message
+      MYSQL_USER: message
+      MYSQL_PASSWORD_FILE: /run/secrets/db_password
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
+    secrets: [db_password, db_root_password]
+    volumes: [database:/var/lib/mysql]
+    healthcheck:
+      test:
+        [
+          CMD-SHELL,
+          'MYSQL_PWD="$$(cat /run/secrets/db_password)" mysql -h 127.0.0.1 -u message message -e "SELECT 1" >/dev/null 2>&1',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: "3" }
+  migrate:
+    <<: *app
+    command: [node, backend/src/migrate.js]
+    depends_on:
+      db: { condition: service_healthy }
+    restart: "no"
+  app:
+    <<: *app
+    restart: unless-stopped
+    stop_grace_period: 35s
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      db: { condition: service_healthy }
+  gateway:
+    image: caddy:2
+    restart: unless-stopped
+    volumes:
+      - ./deploy/Caddyfile.tunnel:/etc/caddy/Caddyfile:ro
+    depends_on:
+      app: { condition: service_healthy }
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: "3" }
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command:
+      [tunnel, --no-autoupdate, run, --token-file, /run/secrets/tunnel_token]
+    secrets: [tunnel_token]
+    depends_on: [gateway]
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: "3" }
+
+volumes:
+  database:
+  uploads:
+secrets:
+  db_password: { file: ./secrets/db_password }
+  db_root_password: { file: ./secrets/db_root_password }
+  turn_secret: { file: ./secrets/turn_secret }
+  tunnel_token: { file: ./secrets/tunnel_token }

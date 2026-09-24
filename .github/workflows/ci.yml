@@ -67,7 +67,14 @@ jobs:
       - run: bash scripts/backup.sh
       - run: bash scripts/restore.sh "$(find backups -mindepth 1 -maxdepth 1 -type d | head -1)" --replace-data
       - run: docker compose exec -T -e SMOKE_RESTORE_CHECK=1 app node --input-type=module < scripts/production-smoke.mjs
+      - name: Validate laptop tunnel gateway
+        run: |
+          printf 'ci-placeholder' > secrets/tunnel_token
+          docker compose -f compose.tunnel.yaml config --quiet
+          docker compose -f compose.tunnel.yaml up -d gateway
+          docker compose -f compose.tunnel.yaml exec -T gateway caddy validate --config /etc/caddy/Caddyfile
+          docker compose exec -T app node -e "fetch('http://gateway:8080/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
       - if: failure()
         run: docker compose logs --tail=100
       - if: always()
-        run: docker compose down
+        run: docker compose down --remove-orphans
