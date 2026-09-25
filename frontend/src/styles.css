@@ -891,10 +891,21 @@ button:active:not(:disabled) {
 .message-row {
   display: flex;
   margin: 10px 0;
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
   animation: bubble-pop 0.28s cubic-bezier(0.25, 1.4, 0.4, 1) both;
 }
 .message-row.mine {
   justify-content: flex-end;
+}
+.date-divider,
+.load-older,
+.conversation-intro,
+.typing-indicator {
+  width: 100%;
+  max-width: 900px;
+  box-sizing: border-box;
 }
 @keyframes bubble-pop {
   from {
@@ -984,7 +995,7 @@ button:active:not(:disabled) {
 .date-divider {
   display: flex;
   justify-content: center;
-  margin: 18px 0 25px;
+  margin: 18px auto 25px;
 }
 .date-divider span {
   background: var(--surface-soft);
@@ -1007,6 +1018,7 @@ button:active:not(:disabled) {
   text-align: center;
   padding: 70px 15px;
   color: var(--muted);
+  margin: 0 auto;
 }
 .conversation-intro h2 {
   font-size: 20px;
@@ -1021,7 +1033,7 @@ button:active:not(:disabled) {
   display: flex;
   align-items: center;
   gap: 4px;
-  margin-top: 15px;
+  margin: 15px auto 0;
   padding: 10px;
 }
 .typing-indicator > span {
@@ -1060,6 +1072,8 @@ button:active:not(:disabled) {
   background: var(--surface);
   border-radius: 18px;
   padding: 10px;
+  max-width: 900px;
+  margin: 0 auto;
   box-shadow: 0 4px 12px #00000002;
   transition:
     border-color 0.18s,
