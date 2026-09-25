@@ -1,3 +1,4 @@
+import { useConfirm } from "./components/ConfirmDialog";
 import Social from "./components/Social";
 import Profile, { presetImage } from "./components/Profile";
 import Groups from "./components/Groups";
@@ -347,6 +348,7 @@ function Auth({ onLogin, theme, setTheme }) {
   );
 }
 function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
+  const confirm = useConfirm();
   const [page, setPage] = useState(() => {
     if (new URL(location.href).searchParams.has("post")) return "posts";
     try {
@@ -734,6 +736,16 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
     setFocusPost(null);
   }
   async function requestAction(action) {
+    if (
+      action === "decline" &&
+      !(await confirm({
+        title: "Decline this request?",
+        description:
+          "This conversation will close and the sender cannot send another introduction in it.",
+        confirmLabel: "Decline request",
+      }))
+    )
+      return;
     try {
       await post(`/conversations/${activeId}/${action}`, {});
       await refreshList();
@@ -747,9 +759,12 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
     if (
       !selected ||
       selected.isGroup ||
-      !window.confirm(
-        `Block @${selected.peer.username}? This stops messages, calls and social interactions.`,
-      )
+      !(await confirm({
+        title: `Block @${selected.peer.username}?`,
+        description:
+          "This stops messages, calls and social interactions. You can unblock them from the people panel later.",
+        confirmLabel: "Block user",
+      }))
     )
       return;
     try {

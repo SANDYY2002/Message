@@ -1,3 +1,4 @@
+import { useConfirm } from "./ConfirmDialog";
 import { useEffect, useRef, useState } from "react";
 import {
   Heart,
@@ -48,6 +49,7 @@ export default function Social({
   onProfile,
   onCloseProfile,
 }) {
+  const confirm = useConfirm();
   const root = useRef(null);
   const [profile, setProfile] = useState(null);
   const [connections, setConnections] = useState(null);
@@ -212,9 +214,12 @@ export default function Social({
   const change = (path, method) => api(path, { method });
   async function block(person) {
     if (
-      !window.confirm(
-        `Block @${person.username}? You will no longer see or interact with each other's posts and messages.`,
-      )
+      !(await confirm({
+        title: `Block @${person.username}?`,
+        description:
+          "You will no longer see or interact with each other’s posts and messages. You can unblock them from the people panel.",
+        confirmLabel: "Block user",
+      }))
     )
       return;
     await act(() => change(`/blocks/${person.id}`, "PUT"), "User blocked.");
@@ -592,11 +597,14 @@ export default function Social({
                         <button
                           aria-label="Delete post"
                           disabled={busy}
-                          onClick={() => {
+                          onClick={async () => {
                             if (
-                              window.confirm(
-                                "Delete this post and its comments?",
-                              )
+                              await confirm({
+                                title: "Delete this post?",
+                                description:
+                                  "This permanently removes the post, its comments and reposts. This cannot be undone.",
+                                confirmLabel: "Delete post",
+                              })
                             )
                               act(
                                 () => change(`/posts/${p.id}`, "DELETE"),

@@ -1,3 +1,4 @@
+import { useConfirm } from "./ConfirmDialog";
 import { useEffect, useRef, useState } from "react";
 import { api, post } from "../api";
 import { X, Users } from "lucide-react";
@@ -9,6 +10,7 @@ export default function Groups({
   onCreated,
   onChanged,
 }) {
+  const confirm = useConfirm();
   const dialog = useRef(null),
     [name, setName] = useState(conversation?.peer.displayName || ""),
     [search, setSearch] = useState(""),
@@ -58,6 +60,26 @@ export default function Groups({
     }
   }
   async function change(path, method, body) {
+    if (
+      method === "DELETE" &&
+      !(await confirm({
+        title: "Remove group member?",
+        description:
+          "They will lose access to this group's messages and shared media.",
+        confirmLabel: "Remove member",
+      }))
+    )
+      return;
+    if (
+      body?.ownerId &&
+      !(await confirm({
+        title: "Transfer group ownership?",
+        description:
+          "This member will manage the group. You will become a regular member.",
+        confirmLabel: "Transfer ownership",
+      }))
+    )
+      return;
     await api(`/groups/${conversation.id}${path}`, {
       method,
       ...(body ? { body: JSON.stringify(body) } : {}),
@@ -158,6 +180,15 @@ export default function Groups({
               disabled={busy}
               onClick={() =>
                 action(async () => {
+                  if (
+                    !(await confirm({
+                      title: "Leave this group?",
+                      description:
+                        "You will lose access to this group's messages. A group owner will need to add you again.",
+                      confirmLabel: "Leave group",
+                    }))
+                  )
+                    return;
                   await api(`/groups/${conversation.id}/members/${userId}`, {
                     method: "DELETE",
                   });

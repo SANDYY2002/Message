@@ -103,6 +103,20 @@ test("create a group, exchange messages, show sender names and remove a member",
     await details
       .getByRole("button", { name: "Remove groupbob", exact: true })
       .click();
+    const confirmation = a.getByRole("dialog", {
+      name: "Remove group member?",
+    });
+    await expect(confirmation).toBeVisible();
+    await confirmation
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
+    await expect(details.locator(".group-members")).toContainText("groupbob");
+    await details
+      .getByRole("button", { name: "Remove groupbob", exact: true })
+      .click();
+    await confirmation
+      .getByRole("button", { name: "Remove member", exact: true })
+      .click();
     await expect(
       b.locator(".conversation").filter({ hasText: "Weekend plans" }),
     ).toHaveCount(0);

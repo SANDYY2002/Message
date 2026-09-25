@@ -3418,3 +3418,156 @@ button:active:not(:disabled) {
     padding: 16px;
   }
 }
+
+/* Unified decisions and a readable finish for the violet / sunset design. */
+.confirm-dialog {
+  width: min(440px, calc(100vw - 32px));
+  max-height: calc(100dvh - 40px);
+  overflow: auto;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 30px 100px #10082455;
+}
+.confirm-dialog::backdrop,
+.group-dialog::backdrop,
+.message-modal::backdrop {
+  background: #10082499;
+  backdrop-filter: blur(8px);
+}
+.confirmation-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+.confirmation-icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 18px;
+  background: var(--error-bg);
+  color: var(--error);
+}
+.confirm-dialog h2 {
+  font: 700 25px/1.25 var(--heading);
+  margin: 10px 0 14px;
+  letter-spacing: -0.7px;
+  overflow-wrap: anywhere;
+}
+.confirm-dialog p {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--muted);
+  margin: 0;
+}
+.confirmation-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 28px;
+}
+.confirmation-actions button {
+  flex: 1;
+  padding: 13px 15px;
+  border-radius: 13px;
+  font-weight: 650;
+  min-height: 46px;
+}
+.confirm-cancel {
+  background: var(--surface-soft);
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+.confirm-accept {
+  background: #ae244b;
+  color: #fff;
+}
+.confirm-accept:hover {
+  background: #921c3e;
+}
+.group-dialog,
+.message-modal {
+  box-shadow: 0 30px 90px #10082440;
+  border-radius: 24px;
+}
+.profile-dialog fieldset {
+  background: var(--surface);
+  border-radius: 18px;
+}
+.social-header {
+  border-radius: 20px;
+  padding: 20px 24px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.social-greeting {
+  color: var(--muted);
+}
+.feed-filters {
+  gap: 6px;
+  padding: 6px;
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+.feed-filters button {
+  border-radius: 10px;
+  min-height: 40px;
+}
+.feed-filters button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: 0 2px 8px #1008240d;
+}
+.post-composer textarea {
+  font-size: 15px;
+  line-height: 1.7;
+}
+.post-text {
+  line-height: 1.75;
+}
+:root {
+  --muted: #716180;
+  --bubble-grad: linear-gradient(135deg, #7040cd 0%, #b62c6d 100%);
+}
+:root[data-theme="dark"] {
+  --muted: #b6a8d1;
+  --bubble-grad: linear-gradient(135deg, #7040cd 0%, #b62c6d 100%);
+}
+:root[data-theme="coloured"] {
+  --muted: #805e43;
+  --accent: #a44319;
+  --bubble-grad: linear-gradient(135deg, #a64016 0%, #886000 100%);
+}
+.mine .message-meta {
+  color: #fff;
+}
+@media (max-width: 600px) {
+  .confirm-dialog {
+    padding: 22px;
+    border-radius: 22px;
+  }
+  .social-header {
+    padding: 16px;
+    border-radius: 16px;
+  }
+  .social-greeting {
+    display: none;
+  }
+  .confirmation-actions {
+    flex-wrap: wrap;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  button:hover,
+  button:active:not(:disabled),
+  .post-card:hover,
+  .activity-card:hover {
+    transform: none;
+  }
+}

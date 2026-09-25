@@ -99,7 +99,9 @@ test("publish from both tabs, follow, engage, review requests and block", async 
       .fill("A colourful corner of the community");
     await a.getByRole("button", { name: "Save bio", exact: true }).click();
     await expect(a.getByText("Bio updated.", { exact: true })).toBeVisible();
-    await a.getByRole("combobox", { name: "Theme", exact: true }).selectOption("coloured");
+    await a
+      .getByRole("combobox", { name: "Theme", exact: true })
+      .selectOption("coloured");
     await a
       .getByRole("button", { name: "Close settings", exact: true })
       .click();
@@ -141,8 +143,37 @@ test("publish from both tabs, follow, engage, review requests and block", async 
     await expect(
       a.getByRole("button", { name: "Voice call", exact: true }),
     ).toBeVisible();
-    b.once("dialog", (d) => d.accept());
+    b.on("dialog", async (d) => {
+      errors.push("Unexpected browser dialog");
+      await d.dismiss();
+    });
     await b.getByRole("button", { name: "Block user", exact: true }).click();
+    const confirmation = b.getByRole("dialog", {
+      name: `Block @${an}?`,
+      exact: true,
+    });
+    await expect(confirmation).toBeVisible();
+    await expect(
+      confirmation.getByRole("button", { name: "Cancel", exact: true }),
+    ).toBeFocused();
+    await b.keyboard.press("Escape");
+    await expect(confirmation).not.toBeVisible();
+    await expect(
+      b.getByRole("button", { name: "Block user", exact: true }),
+    ).toBeFocused();
+    await b.getByRole("button", { name: "Block user", exact: true }).click();
+    await b.screenshot({ path: "test-results/confirmation-desktop.png" });
+    await b.setViewportSize({ width: 390, height: 844 });
+    await expect(confirmation).toBeVisible();
+    expect(
+      await confirmation.evaluate((el) => el.scrollWidth <= el.clientWidth),
+    ).toBe(true);
+    await b.screenshot({ path: "test-results/confirmation-mobile.png" });
+    await confirmation
+      .getByRole("button", { name: "Block user", exact: true })
+      .click();
+    await b.setViewportSize({ width: 1280, height: 720 });
+
     await expect(a.getByRole("heading", { name: bn, exact: true })).toHaveCount(
       0,
     );
