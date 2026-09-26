@@ -362,7 +362,14 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
     if (new URL(location.href).searchParams.has("post")) return "posts";
     try {
       const saved = sessionStorage.getItem(`message-page:${user.id}`);
-      return ["home", "posts", "activity", "messages"].includes(saved)
+      return [
+        "home",
+        "posts",
+        "activity",
+        "messages",
+        "confessions",
+        "admin",
+      ].includes(saved)
         ? saved
         : "home";
     } catch {
@@ -1266,8 +1273,11 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
                           )
                             bottom.current?.scrollIntoView();
                         }}
-                        onEdit={(message) =>
-                          setMessageAction({ kind: "edit", message })
+                        onEdit={
+                          blocked
+                            ? null
+                            : (message) =>
+                                setMessageAction({ kind: "edit", message })
                         }
                         onDelete={(message) =>
                           setMessageAction({ kind: "delete", message })

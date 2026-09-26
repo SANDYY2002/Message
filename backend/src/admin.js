@@ -92,6 +92,21 @@ export function mountAdmin(app, limiter) {
       );
     next();
   });
+  app.get("/api/admin/avatars/:id", async (req, res, next) => {
+    const uid = id(req.params.id);
+    await audit(query, req.auth.user.id, "avatar_view", uid);
+    const [u] = await query("SELECT avatar_path FROM users WHERE id=?", [uid]);
+    if (!u?.avatar_path) throw new HttpError(404, "Avatar not found.");
+    res
+      .type("image/webp")
+      .sendFile(
+        path.join(config.uploadDir, u.avatar_path),
+        { cacheControl: false },
+        (e) => {
+          if (e) next(e);
+        },
+      );
+  });
   app.get("/api/admin/users", async (req, res) => {
     const before = req.query.before ? id(req.query.before) : 4294967295,
       search = String(req.query.search || "").slice(0, 60);
@@ -105,6 +120,9 @@ export function mountAdmin(app, limiter) {
   app.get("/api/admin/users/:id/:tab", async (req, res) => {
     const uid = id(req.params.id),
       tab = req.params.tab;
+    const offset = Number(req.query.offset || 0);
+    if (!Number.isSafeInteger(offset) || offset < 0 || offset > 10000000)
+      throw new HttpError(400, "Invalid page.");
     const statements = {
       profile:
         "SELECT id,username,display_name,bio,avatar_preset,avatar_path,avatar_revision FROM users WHERE id=?",
@@ -117,19 +135,42 @@ export function mountAdmin(app, limiter) {
       messages:
         "SELECT c.id,c.kind,c.name,c.request_status,c.user_low,c.user_high,c.updated_at FROM conversations c WHERE c.user_low=? OR c.user_high=? OR EXISTS(SELECT 1 FROM group_members g WHERE g.conversation_id=c.id AND g.user_id=?) ORDER BY c.updated_at DESC LIMIT 100",
       followers:
-        "SELECT u.id,u.username,u.display_name FROM follows f JOIN users u ON u.id=f.follower_id WHERE f.followed_id=? LIMIT 100",
+        "SELECT u.id,u.username,u.display_name FROM follows f JOIN users u ON u.id=f.follower_id WHERE f.followed_id=? ORDER BY u.id DESC LIMIT 100",
       following:
-        "SELECT u.id,u.username,u.display_name FROM follows f JOIN users u ON u.id=f.followed_id WHERE f.follower_id=? LIMIT 100",
+        "SELECT u.id,u.username,u.display_name FROM follows f JOIN users u ON u.id=f.followed_id WHERE f.follower_id=? ORDER BY u.id DESC LIMIT 100",
+      activity:
+        "SELECT id,actor_id,kind,post_id,is_read,created_at FROM activities WHERE recipient_id=? ORDER BY id DESC LIMIT 100",
+      saved:
+        "SELECT p.id,p.text,p.author_id,p.created_at FROM post_bookmarks b JOIN posts p ON p.id=b.post_id WHERE b.user_id=? ORDER BY p.id DESC LIMIT 100",
+      reactions:
+        "SELECT p.id,p.text,p.author_id FROM post_likes l JOIN posts p ON p.id=l.post_id WHERE l.user_id=? ORDER BY p.id DESC LIMIT 100",
+      social_comments:
+        "SELECT id,post_id,text,created_at FROM post_comments WHERE author_id=? ORDER BY id DESC LIMIT 100",
+      calls:
+        "SELECT id,conversation_id,caller_id,callee_id,kind,status,created_at FROM calls WHERE caller_id=? OR callee_id=? ORDER BY id DESC LIMIT 100",
       blocks:
-        "SELECT u.id,u.username,u.display_name FROM user_blocks b JOIN users u ON u.id=b.blocked_id WHERE b.blocker_id=? LIMIT 100",
+        "SELECT u.id,u.username,u.display_name FROM user_blocks b JOIN users u ON u.id=b.blocked_id WHERE b.blocker_id=? ORDER BY u.id DESC LIMIT 100",
     };
     if (!statements[tab]) throw new HttpError(404, "Unknown user tab.");
     await audit(query, req.auth.user.id, `user_${tab}`, uid);
     const rows = await query(
-      statements[tab],
-      tab === "messages" ? [uid, uid, uid] : [uid],
+      statements[tab].replace("LIMIT 100", `LIMIT 50 OFFSET ${offset}`),
+      tab === "messages"
+        ? [uid, uid, uid]
+        : tab === "calls"
+          ? [uid, uid]
+          : [uid],
     );
-    res.json({ rows: tab === "profile" ? rows.map(publicUser) : rows });
+    res.json({
+      rows:
+        tab === "profile"
+          ? rows.map((u) => ({
+              ...publicUser(u),
+              avatarUrl: u.avatar_path ? `/api/admin/avatars/${u.id}` : null,
+            }))
+          : rows,
+      nextOffset: tab !== "profile" && rows.length === 50 ? offset + 50 : null,
+    });
   });
   app.get("/api/admin/conversations/:id", async (req, res) => {
     const cid = id(req.params.id),

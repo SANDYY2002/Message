@@ -3773,3 +3773,19 @@ button:active:not(:disabled) {
     max-width: 100%;
   }
 }
+.community-card .admin-avatar {
+  width: 88px;
+  height: 88px;
+  object-fit: cover;
+  border-radius: 50%;
+}
+.community-page button {
+  font-weight: 600;
+}
+.community-page .admin-user-list {
+  max-height: 280px;
+  overflow: auto;
+}
+.community-card dt {
+  text-transform: capitalize;
+}

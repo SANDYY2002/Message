@@ -50,6 +50,8 @@ test("anonymous confessions and authenticator-protected moderation", async ({
   await expect(
     card.locator(".confession-comment").filter({ hasText: "A named thought" }),
   ).toContainText("@" + name);
+  await expect(card.getByText("2 comments", { exact: true })).toBeVisible();
+  await page.locator(".community-page").evaluate((el) => (el.scrollTop = 0));
   await page.screenshot({
     path: "test-results/confessions-desktop.png",
     fullPage: true,
@@ -60,6 +62,7 @@ test("anonymous confessions and authenticator-protected moderation", async ({
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
+  await page.locator(".community-page").evaluate((el) => (el.scrollTop = 0));
   await page.screenshot({
     path: "test-results/confessions-mobile.png",
     fullPage: true,

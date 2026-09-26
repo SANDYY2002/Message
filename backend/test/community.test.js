@@ -189,6 +189,24 @@ test("admin access requires password plus fresh TOTP and is bound to session", a
   const users = await req("/admin/users", c);
   assert.equal(users.status, 200);
   assert.equal(JSON.stringify(users.data).includes("password_hash"), false);
+  for (const tab of [
+    "profile",
+    "posts",
+    "confessions",
+    "comments",
+    "messages",
+    "followers",
+    "following",
+    "blocks",
+    "activity",
+    "saved",
+    "reactions",
+    "social_comments",
+    "calls",
+  ]) {
+    const view = await req(`/admin/users/${a.id}/${tab}`, c);
+    assert.equal(view.status, 200, tab + JSON.stringify(view.data));
+  }
   const queue = await req("/admin/moderation", c);
   assert.equal(queue.status, 200);
   const p = queue.data.posts.find((p) => p.author_id === a.id);

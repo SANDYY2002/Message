@@ -184,7 +184,7 @@ export default function Confessions() {
                   <MessageCircle size={16} /> {p.comments} comments
                 </span>
               </div>
-              <Comments pid={p.id} />
+              <Comments pid={p.id} onChange={load} />
               <Report pid={p.id} />
             </>
           )}
@@ -201,7 +201,7 @@ export default function Confessions() {
     </section>
   );
 }
-function Comments({ pid }) {
+function Comments({ pid, onChange }) {
   const [open, setOpen] = useState(false),
     [comments, setComments] = useState([]),
     [more, setMore] = useState(false),
@@ -223,6 +223,7 @@ function Comments({ pid }) {
     try {
       await fn();
       await load();
+      await onChange();
     } catch (e) {
       setNotice(e.message);
     } finally {

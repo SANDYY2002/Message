@@ -12,6 +12,7 @@ export default function Admin() {
     [person, setPerson] = useState(null),
     [tab, setTab] = useState("profile"),
     [rows, setRows] = useState([]),
+    [nextOffset, setNextOffset] = useState(null),
     [conversation, setConversation] = useState(null),
     [messages, setMessages] = useState([]),
     [queue, setQueue] = useState({ posts: [], comments: [], reports: [] });
@@ -57,17 +58,19 @@ export default function Admin() {
       setPerson(null);
     }
   }, [status?.unlocked, page]);
-  async function userTab(u, t) {
+  async function userTab(u, t, offset = 0) {
+    const d = await api(`/admin/users/${u.id}/${t}?offset=${offset}`);
     setPerson(u);
     setTab(t);
     setConversation(null);
-    setRows((await api(`/admin/users/${u.id}/${t}`)).rows);
+    setRows((r) => (offset ? [...r, ...d.rows] : d.rows));
+    setNextOffset(d.nextOffset);
   }
   async function chat(cid, before) {
-    setConversation(cid);
     const d = await api(
       `/admin/conversations/${cid}` + (before ? `?before=${before}` : ""),
     );
+    setConversation(cid);
     setMessages((m) => (before ? [...m, ...d.messages] : d.messages));
   }
   return (
@@ -151,6 +154,7 @@ export default function Admin() {
             {["users", "moderation", "audit"].map((p) => (
               <button
                 key={p}
+                disabled={busy}
                 aria-pressed={page === p}
                 onClick={() => {
                   setPerson(null);
@@ -185,6 +189,7 @@ export default function Admin() {
                 {users.map((u) => (
                   <button
                     key={u.id}
+                    disabled={busy}
                     onClick={() => act(() => userTab(u, "profile"))}
                   >
                     {u.displayName} <small>@{u.username}</small>
@@ -208,6 +213,16 @@ export default function Admin() {
               {person && (
                 <div className="community-card">
                   <h2>@{person.username}</h2>
+                  {!conversation && nextOffset !== null && (
+                    <button
+                      disabled={busy}
+                      onClick={() =>
+                        act(() => userTab(person, tab, nextOffset))
+                      }
+                    >
+                      Load more {tab}
+                    </button>
+                  )}
                   <div className="community-actions">
                     {[
                       "profile",
@@ -218,13 +233,19 @@ export default function Admin() {
                       "followers",
                       "following",
                       "blocks",
+                      "activity",
+                      "saved",
+                      "reactions",
+                      "social_comments",
+                      "calls",
                     ].map((t) => (
                       <button
                         key={t}
+                        disabled={busy}
                         aria-pressed={tab === t}
                         onClick={() => act(() => userTab(person, t))}
                       >
-                        {t}
+                        {t.replaceAll("_", " ")}
                       </button>
                     ))}
                   </div>
@@ -275,6 +296,13 @@ export default function Admin() {
                           </button>
                         ) : (
                           <>
+                            {tab === "profile" && r.avatarUrl && (
+                              <img
+                                className="admin-avatar"
+                                src={r.avatarUrl}
+                                alt="Profile avatar"
+                              />
+                            )}
                             <dl>
                               {Object.entries(r)
                                 .filter(

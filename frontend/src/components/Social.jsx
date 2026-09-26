@@ -56,8 +56,7 @@ export default function Social({
   const loadSequence = useRef(0);
   const [posts, setPosts] = useState([]),
     [people, setPeople] = useState([]),
-    [activities, setActivities] = useState([]),
-    [blocks, setBlocks] = useState([]);
+    [activities, setActivities] = useState([]);
   const [mode, setMode] = useState("all"),
     [draft, setDraft] = useState(""),
     [search, setSearch] = useState(""),
@@ -217,7 +216,7 @@ export default function Social({
       !(await confirm({
         title: `Block @${person.username}?`,
         description:
-          "You will no longer see or interact with each other’s posts and messages. You can unblock them from Settings.",
+          "This stops new messages, calls and social interactions. Existing chats remain readable. You can unblock them from Settings.",
         confirmLabel: "Block user",
       }))
     )
