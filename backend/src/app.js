@@ -66,12 +66,13 @@ export async function createApp(io) {
       ...(keyGenerator ? { keyGenerator } : {}),
       message: { error: "Too many requests. Please try again shortly." },
     });
-  app.use("/api", limiter(600, 60_000));
+  // Coarse network protection, with a separate authenticated budget below.
+  // Shared networks must not merge every signed-in account into one small quota.
+  app.use("/api", limiter(6000, 60_000));
   app.get("/api/health", async (req, res) => {
     await query("SELECT 1");
     res.json({ status: "ok" });
   });
-  mountCalls(app);
   const authLimiter = limiter(20, 15 * 60_000);
   const dummyHash = await bcrypt.hash(randomUUID(), 12);
   app.post("/api/auth/register", authLimiter, async (req, res) => {
@@ -113,6 +114,11 @@ export async function createApp(io) {
     });
   });
   app.use("/api", requireAuth);
+  app.use(
+    "/api",
+    limiter(600, 60_000, (r) => String(r.auth.user.id)),
+  );
+  mountCalls(app);
   mountConfessions(app, limiter);
   mountAdmin(app, limiter);
   app.get("/api/auth/me", (req, res) =>

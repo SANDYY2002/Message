@@ -295,3 +295,10 @@ test("blocked chats remain readable and deletion hides only the local inbox", as
     true,
   );
 });
+
+test("authenticated request budgets are isolated across accounts sharing an IP", async () => {
+  for (let batch = 0; batch < 31; batch++)
+    await Promise.all(Array.from({ length: 20 }, () => req("/auth/me", a)));
+  assert.equal((await req("/auth/me", a)).status, 429);
+  assert.equal((await req("/auth/me", b)).status, 200);
+});
