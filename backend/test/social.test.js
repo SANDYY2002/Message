@@ -177,16 +177,16 @@ test("requests require recipient consent; replies accept, declines close, and bl
   assert.equal((await send(cid, a, "Now normal chat works")).status, 201);
   assert.equal((await req(`/blocks/${a.id}`, b, "PUT")).status, 204);
   assert.equal((await send(cid, a, "Blocked message")).status, 403);
-  assert.equal((await req(`/conversations/${cid}/messages`, a)).status, 403);
+  assert.equal((await req(`/conversations/${cid}/messages`, a)).status, 200);
   assert.equal(
     (await req(`/conversations/${cid}/search?q=hello`, a)).status,
     403,
   );
   assert.equal(
     (await req("/conversations", a)).data.conversations.some(
-      (c) => c.id === cid,
+      (c) => c.id === cid && c.blockedByPeer,
     ),
-    false,
+    true,
   );
   const other = await req("/conversations", c, "POST", { userId: b.id });
   const declined = other.data.id;

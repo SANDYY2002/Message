@@ -100,3 +100,31 @@ Open a person’s name or avatar to see their bio, posts, followers and followin
 ## Production hosting
 
 See [PRODUCTION.md](PRODUCTION.md) for the Docker/HTTPS deployment, secrets, persistent volumes, TURN requirements, backup/restore, updates and operational limits. This serves the complete app on one domain; Vercel alone does not run this persistent Socket.IO server or retain uploaded files.
+
+## Confessions, admin access, and blocked chats
+
+Signed-in users can publish anonymous confessions with photo/video attachments, like and report posts, and comment anonymously or under their profile. Authors can delete their posts and comments. Anonymous API responses omit account identifiers. The UI discloses that superadmins can identify authors/commenters. Attachment content can reveal identity; JPEG/PNG/WebP metadata is stripped, but do not assume video/GIF metadata is anonymous.
+
+A conservative English/Nepali/Romanized Nepali phrase filter holds matching posts/comments for review. It is not comprehensive abuse detection or automated image/video moderation. Users can report published confessions. Admins approve or reject pending/reported content.
+
+Update an existing laptop deployment, preparing the new encryption secret before rebuilding (existing files and database are preserved):
+
+```powershell
+git pull origin main
+node scripts/init-production.mjs
+docker compose -f compose.tunnel.yaml up -d --build
+```
+
+Register your own `yukin` account, then enrol it from your trusted server terminal:
+
+```powershell
+docker compose -f compose.tunnel.yaml exec app node backend/src/admin-setup.js yukin
+```
+
+Add the printed setup key manually to your authenticator as a time-based account (SHA1, 6 digits, 30 seconds). Keep that key private. Refresh Message, open Administration, and enter your password plus the current code. Enrollment binds to the existing user's ID, so username changes do not transfer privileges. No public endpoint grants this role. Verify you control the existing account before enrolling it.
+
+Admin elevation is bound to the login session, expires after 15 minutes, rejects reused codes, and is revoked by logout/password changes. Admin views include profiles, social content, confession/comment identities, relationships, private message history/media, moderation and audit records. Sensitive reads and moderation actions are audited. Sign-in and chat screens disclose superadmin access to private messages/media and the absence of end-to-end encryption. Password hashes and authenticator secrets are never returned by admin APIs.
+
+Back up `secrets/admin_encryption_key` securely alongside other deployment secrets; database backups alone cannot decrypt authenticator seeds. Never commit secret files. To recover authenticator access, repeat the trusted setup command with `--reset`; this replaces the setup key and invalidates existing admin elevations. For local development, supply a persistent random 64-character hex `ADMIN_ENCRYPTION_KEY` in `backend/.env` before enrollment.
+
+Settings → Blocked users manages blocks. Direct chats remain in Chats with a blocked notice and read-only history. Unblock restores messaging according to the original request state; previously declined requests remain closed. Delete chat hides it from your own inbox only, not the other participant's copy; a future allowed message can bring it back. Blocking still prevents messages, calls, and social interactions.

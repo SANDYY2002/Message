@@ -23,6 +23,12 @@ export default function Profile({
   setTheme,
 }) {
   const dialog = useRef(null);
+  const [blocks, setBlocks] = useState([]);
+  useEffect(() => {
+    api("/blocks")
+      .then((d) => setBlocks(d.users))
+      .catch((e) => setError(e.message));
+  }, []);
   const [tab, setTab] = useState("account");
   const [bio, setBio] = useState(user.bio || "");
   const [username, setUsername] = useState(user.username),
@@ -104,7 +110,48 @@ export default function Profile({
         >
           Notifications & sound
         </button>
+        <button
+          role="tab"
+          id="blocked-tab"
+          aria-controls="blocked-panel"
+          aria-selected={tab === "blocked"}
+          onClick={() => setTab("blocked")}
+        >
+          Blocked users
+        </button>
       </div>
+      <section
+        id="blocked-panel"
+        role="tabpanel"
+        aria-labelledby="blocked-tab"
+        hidden={tab !== "blocked"}
+      >
+        <h3>Blocked users</h3>
+        <p className="group-help">
+          Blocked conversations stay in Chats. Unblocking does not restore
+          follows.
+        </p>
+        {error && <p role="alert">{error}</p>}
+        {!blocks.length && <p>No blocked users.</p>}
+        {blocks.map((u) => (
+          <div className="community-actions" key={u.id}>
+            <span>
+              {u.displayName} · @{u.username}
+            </span>
+            <button
+              disabled={busy}
+              onClick={() =>
+                action(async () => {
+                  await api(`/blocks/${u.id}`, { method: "DELETE" });
+                  setBlocks((b) => b.filter((p) => p.id !== u.id));
+                })
+              }
+            >
+              Unblock @{u.username}
+            </button>
+          </div>
+        ))}
+      </section>
       <section
         id="notifications-panel"
         role="tabpanel"

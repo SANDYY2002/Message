@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 export const backendDir = fileURLToPath(new URL("..", import.meta.url));
 dotenv.config({ path: path.join(backendDir, ".env"), quiet: true });
 // File-backed secrets keep credentials out of container environment inspection.
-for (const key of ["DB_PASSWORD", "TURN_SECRET"]) {
+for (const key of ["DB_PASSWORD", "TURN_SECRET", "ADMIN_ENCRYPTION_KEY"]) {
   if (process.env[`${key}_FILE`]) {
     if (process.env[key]) throw new Error(`Set only ${key} or ${key}_FILE`);
     process.env[key] = readFileSync(process.env[`${key}_FILE`], "utf8").trim();

@@ -12,6 +12,7 @@ x-app: &app
     DB_HOST: db
     DB_NAME: message
     DB_USER: message
+    ADMIN_ENCRYPTION_KEY_FILE: /run/secrets/admin_encryption_key
     DB_PASSWORD_FILE: /run/secrets/db_password
     UPLOAD_DIR: /app/backend/uploads
     MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-25}
@@ -19,7 +20,7 @@ x-app: &app
     STUN_URL: ${STUN_URL:-}
     TURN_URLS: ${TURN_URLS:-}
     TURN_SECRET_FILE: /run/secrets/turn_secret
-  secrets: [db_password, turn_secret]
+  secrets: [db_password, turn_secret, admin_encryption_key]
   volumes: [uploads:/app/backend/uploads]
   read_only: true
   tmpfs: ["/tmp:size=64m,mode=1777"]
@@ -88,3 +89,4 @@ secrets:
   db_password: { file: ./secrets/db_password }
   db_root_password: { file: ./secrets/db_root_password }
   turn_secret: { file: ./secrets/turn_secret }
+  admin_encryption_key: { file: ./secrets/admin_encryption_key }

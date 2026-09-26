@@ -34,15 +34,11 @@ export function mountMessagingPolicy(app, io, limiter) {
         "SELECT id FROM conversations WHERE user_low=? AND user_high=? FOR UPDATE",
         [Math.min(uid, peer), Math.max(uid, peer)],
       );
-      await q(
-        "UPDATE conversations SET request_status='declined' WHERE user_low=? AND user_high=?",
-        [Math.min(uid, peer), Math.max(uid, peer)],
-      );
       return rows;
     });
     await io.endBlockedCalls?.(uid, peer);
     for (const c of conversations)
-      io.to([`user:${uid}`, `user:${peer}`]).emit("conversation:removed", {
+      io.to([`user:${uid}`, `user:${peer}`]).emit("conversation:changed", {
         conversationId: c.id,
       });
     io.to([`user:${uid}`, `user:${peer}`]).emit("relationships:changed");

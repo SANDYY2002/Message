@@ -1,3 +1,5 @@
+import { mountConfessions, storageUsed } from "./confessions.js";
+import { mountAdmin } from "./admin.js";
 import { mountSocial } from "./social.js";
 import { mountMessagingPolicy, prepareSend } from "./messaging-policy.js";
 import { allowInteraction, lockUsers, visibleTo } from "./relationships.js";
@@ -111,6 +113,8 @@ export async function createApp(io) {
     });
   });
   app.use("/api", requireAuth);
+  mountConfessions(app, limiter);
+  mountAdmin(app, limiter);
   app.get("/api/auth/me", (req, res) =>
     res.json({ user: req.auth.user, maxUploadBytes: config.maxBytes }),
   );
@@ -140,7 +144,7 @@ export async function createApp(io) {
   app.get("/api/conversations", async (req, res) => {
     const uid = req.auth.user.id;
     const rows = await query(
-      `SELECT c.*,u.id AS peer_id,u.username,u.display_name,u.avatar_preset,u.avatar_path,u.avatar_revision,
+      `SELECT c.*,EXISTS(SELECT 1 FROM user_blocks b WHERE b.blocker_id=${uid} AND b.blocked_id=u.id) AS blocked_by_me,EXISTS(SELECT 1 FROM user_blocks b WHERE b.blocker_id=u.id AND b.blocked_id=${uid}) AS blocked_by_peer,u.id AS peer_id,u.username,u.display_name,u.avatar_preset,u.avatar_path,u.avatar_revision,
    (SELECT COUNT(*) FROM group_members g WHERE g.conversation_id=c.id) AS member_count,
    (SELECT COUNT(*) FROM messages m WHERE m.conversation_id=c.id AND ${visibleTo(uid, "m.sender_id")} AND m.sender_id<>? AND m.deleted_at IS NULL AND m.id>IF(c.kind='group',gm.read_id,IF(c.user_low=?,c.low_read_id,c.high_read_id))) AS unread,
    (SELECT m.id FROM messages m WHERE m.conversation_id=c.id AND ${visibleTo(uid, "m.sender_id")} ORDER BY m.id DESC LIMIT 1) AS last_id,
@@ -149,17 +153,21 @@ export async function createApp(io) {
    (SELECT m.deleted_at FROM messages m WHERE m.conversation_id=c.id AND ${visibleTo(uid, "m.sender_id")} ORDER BY m.id DESC LIMIT 1) AS last_deleted
    FROM conversations c LEFT JOIN users u ON u.id=IF(c.user_low=?,c.user_high,c.user_low)
    LEFT JOIN group_members gm ON gm.conversation_id=c.id AND gm.user_id=?
-   WHERE (c.user_low=? OR c.user_high=? OR gm.user_id IS NOT NULL) AND (c.kind='group' OR (c.request_status<>'declined' AND ${visibleTo(uid, "u.id")})) ORDER BY c.updated_at DESC,c.id DESC LIMIT 200`,
+   WHERE (c.user_low=? OR c.user_high=? OR gm.user_id IS NOT NULL) AND NOT EXISTS(SELECT 1 FROM hidden_chats h WHERE h.user_id=${uid} AND h.conversation_id=c.id) AND (c.kind='group' OR c.request_status<>'declined' OR NOT ${visibleTo(uid, "u.id")}) ORDER BY c.updated_at DESC,c.id DESC LIMIT 200`,
       [uid, uid, uid, uid, uid, uid],
     );
     res.json({
       conversations: rows.map((c) => ({
         id: c.id,
+        blockedByMe: !!c.blocked_by_me,
+        blockedByPeer: !!c.blocked_by_peer,
         isGroup: c.kind === "group",
         requestStatus: c.request_status,
         requestSender: c.request_sender,
         incomingRequest:
           c.kind !== "group" &&
+          !c.blocked_by_me &&
+          !c.blocked_by_peer &&
           c.request_status === "pending" &&
           c.request_sender !== uid,
         ownerId: c.owner_id,
@@ -172,12 +180,13 @@ export async function createApp(io) {
             ? {}
             : {
                 avatarPreset: c.avatar_preset,
-                avatarUrl: c.avatar_path
-                  ? `/api/avatars/${c.peer_id}?v=${c.avatar_revision}`
-                  : null,
+                avatarUrl:
+                  !c.blocked_by_me && !c.blocked_by_peer && c.avatar_path
+                    ? `/api/avatars/${c.peer_id}?v=${c.avatar_revision}`
+                    : null,
               }),
         },
-        unread: Number(c.unread),
+        unread: c.blocked_by_me || c.blocked_by_peer ? 0 : Number(c.unread),
         peerReadId:
           c.kind === "group"
             ? 0
@@ -219,6 +228,10 @@ export async function createApp(io) {
         );
         if (c.request_status === "declined")
           throw new HttpError(403, "This message request is closed.");
+        await q(
+          "DELETE FROM hidden_chats WHERE user_id=? AND conversation_id=?",
+          [uid, c.id],
+        );
         return c;
       });
       await emitConversation(io, c, "conversation:changed", {
@@ -227,13 +240,24 @@ export async function createApp(io) {
       res.status(201).json({ id: c.id });
     },
   );
+  app.delete("/api/conversations/:id", async (req, res) => {
+    const cid = id(req.params.id),
+      uid = req.auth.user.id;
+    await member(cid, uid, query, false, true);
+    await query(
+      "INSERT IGNORE INTO hidden_chats(user_id,conversation_id) VALUES(?,?)",
+      [uid, cid],
+    );
+    io.to(`user:${uid}`).emit("conversation:removed", { conversationId: cid });
+    res.sendStatus(204);
+  });
   app.get("/api/conversations/:id/messages", async (req, res) => {
     const cid = id(req.params.id),
       uid = req.auth.user.id,
-      c = await member(cid, uid);
+      c = await member(cid, uid, query, false, true);
     const before = req.query.before ? id(req.query.before) : 4294967295;
     const rows = await query(
-      `SELECT m.*,u.display_name AS sender_name FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.conversation_id=? AND m.id<? AND ${visibleTo(uid, "m.sender_id")} ORDER BY m.id DESC LIMIT 51`,
+      `SELECT m.*,u.display_name AS sender_name FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.conversation_id=? AND m.id<? AND ${c.kind === "group" ? visibleTo(uid, "m.sender_id") : "1=1"} ORDER BY m.id DESC LIMIT 51`,
       [cid, before],
     );
     const hasMore = rows.length > 50;
@@ -365,11 +389,8 @@ export async function createApp(io) {
           }
           await prepareSend(currentConversation, uid, q);
           if (req.file) {
-            const [used] = await q(
-              "SELECT COALESCE(SUM(media_size),0) AS bytes FROM messages WHERE sender_id=?",
-              [uid],
-            );
-            if (Number(used.bytes) + req.file.size > config.storageBytes)
+            const used = await storageUsed(q, uid);
+            if (used + req.file.size > config.storageBytes)
               throw new HttpError(413, "Your media storage allowance is full.");
           }
           await member(cid, uid, q, true);
@@ -392,6 +413,7 @@ export async function createApp(io) {
             "UPDATE conversations SET updated_at=UTC_TIMESTAMP(3) WHERE id=?",
             [cid],
           );
+          await q("DELETE FROM hidden_chats WHERE conversation_id=?", [cid]);
           const [message] = await q("SELECT * FROM messages WHERE id=?", [
             row.insertId,
           ]);
@@ -416,8 +438,15 @@ export async function createApp(io) {
     ]);
     if (!m?.media_path || m.deleted_at)
       throw new HttpError(404, "Media not found.");
-    await member(m.conversation_id, req.auth.user.id);
-    await allowInteraction(req.auth.user.id, m.sender_id);
+    const c = await member(
+      m.conversation_id,
+      req.auth.user.id,
+      query,
+      false,
+      true,
+    );
+    if (c.kind === "group")
+      await allowInteraction(req.auth.user.id, m.sender_id);
     res.type(m.media_mime);
     res.setHeader("Content-Disposition", "inline");
     res.sendFile(

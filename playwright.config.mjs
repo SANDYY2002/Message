@@ -21,6 +21,7 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       env: {
         NODE_ENV: "test",
+        ADMIN_ENCRYPTION_KEY: "ef".repeat(32),
         PORT: "4000",
         PUBLIC_ORIGIN: "http://localhost:5173",
         COOKIE_SECURE: "false",

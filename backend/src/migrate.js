@@ -1,8 +1,9 @@
+import { migrateCommunity } from "./community-migration.js";
 import { migrateSocial } from "./social-migration.js";
 import { readFile } from "node:fs/promises";
 import { pool } from "./db.js";
 import { fileURLToPath } from "node:url";
-export const LATEST_SCHEMA_VERSION = 7;
+export const LATEST_SCHEMA_VERSION = 8;
 export async function migrate() {
   const conn = await pool.getConnection();
   try {
@@ -141,6 +142,13 @@ export async function migrate() {
           "ALTER TABLE users ADD COLUMN bio VARCHAR(300) NOT NULL DEFAULT ''",
         );
       await conn.query("INSERT INTO schema_migrations(version) VALUES(7)");
+    }
+    const [v8] = await conn.query(
+      "SELECT version FROM schema_migrations WHERE version=8",
+    );
+    if (!v8.length) {
+      await migrateCommunity(conn);
+      await conn.query("INSERT INTO schema_migrations(version) VALUES(8)");
     }
   } finally {
     await conn.query("SELECT RELEASE_LOCK('message_schema_migration')");

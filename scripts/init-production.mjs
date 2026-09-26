@@ -1,7 +1,11 @@
 import { mkdir, writeFile, copyFile, constants } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 await mkdir("secrets", { recursive: true, mode: 0o700 });
-for (const name of ["db_password", "db_root_password"]) {
+for (const name of [
+  "db_password",
+  "db_root_password",
+  "admin_encryption_key",
+]) {
   try {
     await writeFile(`secrets/${name}`, randomBytes(32).toString("hex") + "\n", {
       flag: "wx",

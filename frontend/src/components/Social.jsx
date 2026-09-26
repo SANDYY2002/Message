@@ -217,7 +217,7 @@ export default function Social({
       !(await confirm({
         title: `Block @${person.username}?`,
         description:
-          "You will no longer see or interact with each other’s posts and messages. You can unblock them from the people panel.",
+          "You will no longer see or interact with each other’s posts and messages. You can unblock them from Settings.",
         confirmLabel: "Block user",
       }))
     )
@@ -851,33 +851,7 @@ export default function Social({
             </div>
           ))}
           {!people.length && <p>No people found.</p>}
-          <details
-            onToggle={(e) => {
-              if (e.currentTarget.open)
-                api("/blocks")
-                  .then((d) => setBlocks(d.users))
-                  .catch((e) => setError(e.message));
-            }}
-          >
-            <summary>Blocked users</summary>
-            {blocks.map((p) => (
-              <div className="person-card" key={p.id}>
-                <span>@{p.username}</span>
-                <button
-                  disabled={busy}
-                  onClick={() =>
-                    act(async () => {
-                      await change(`/blocks/${p.id}`, "DELETE");
-                      setBlocks((old) => old.filter((x) => x.id !== p.id));
-                    }, "User unblocked. Following is not restored automatically.")
-                  }
-                >
-                  Unblock
-                </button>
-              </div>
-            ))}
-            {!blocks.length && <p>No blocked users.</p>}
-          </details>
+          <p className="group-help">Manage blocked users in Settings.</p>
         </aside>
       </div>
     </section>

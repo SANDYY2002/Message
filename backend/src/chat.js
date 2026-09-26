@@ -1,7 +1,13 @@
 import { allowInteraction, visibleTo } from "./relationships.js";
 import { query } from "./db.js";
 import { HttpError } from "./validation.js";
-export async function member(conversationId, userId, q = query, lock = false) {
+export async function member(
+  conversationId,
+  userId,
+  q = query,
+  lock = false,
+  readOnly = false,
+) {
   const [c] = await q(
     `SELECT * FROM conversations WHERE id=?${lock ? " FOR UPDATE" : ""}`,
     [conversationId],
@@ -16,7 +22,7 @@ export async function member(conversationId, userId, q = query, lock = false) {
     c.read_id = membership.read_id;
   } else if (c.user_low !== userId && c.user_high !== userId)
     throw new HttpError(404, "Conversation not found.");
-  if (c.kind !== "group") {
+  if (c.kind !== "group" && !readOnly) {
     await allowInteraction(userId, otherUser(c, userId), q);
     if (c.request_status === "declined")
       throw new HttpError(403, "This message request is closed.");

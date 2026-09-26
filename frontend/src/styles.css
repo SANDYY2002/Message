@@ -3571,3 +3571,205 @@ button:active:not(:disabled) {
     transform: none;
   }
 }
+
+/* Community spaces share the app's theme and remain usable on small screens. */
+.community-page {
+  grid-column: 2/-1;
+  overflow: auto;
+  min-width: 0;
+  padding: 28px max(20px, calc((100% - 850px) / 2));
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: var(--bg);
+}
+.community-page h1 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0;
+  font: 700 30px var(--heading);
+}
+.community-page .social-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.community-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: 24px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  box-shadow: 0 8px 24px #10082408;
+}
+.community-card p {
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+.community-card img,
+.community-card video {
+  width: 100%;
+  max-height: 480px;
+  object-fit: contain;
+  border-radius: 14px;
+  background: var(--surface-soft);
+  margin: 12px 0;
+}
+.community-page textarea,
+.community-page input:not([type="checkbox"]) {
+  width: 100%;
+  background: var(--surface-soft);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  margin: 8px 0;
+  box-sizing: border-box;
+  min-width: 0;
+}
+.community-page textarea {
+  resize: vertical;
+  min-height: 90px;
+}
+.community-page button,
+.blocked-banner button,
+#blocked-panel button {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: var(--surface-soft);
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 42px;
+}
+.community-page button[aria-pressed="true"],
+.community-page .primary-button {
+  background: var(--accent);
+  color: white;
+}
+.community-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+.community-actions > span {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.community-actions input {
+  flex: 1;
+}
+.community-page small {
+  color: var(--muted);
+}
+.privacy-notice {
+  padding: 15px 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-soft);
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+.chat-privacy-note {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+  padding: 8px 20px;
+  margin: 0;
+  border-top: 1px solid var(--line);
+}
+.status-pill {
+  display: inline-block;
+  margin: 4px 8px;
+  padding: 4px 9px;
+  border-radius: 20px;
+  background: var(--surface-soft);
+  font-size: 12px;
+  color: var(--muted);
+}
+.confession-comments {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  margin-top: 16px;
+}
+.confession-comment {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.confession-comments form label {
+  display: block;
+  margin: 10px 0;
+}
+.community-page details {
+  margin-top: 20px;
+  font-size: 13px;
+}
+.community-page summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+.admin-user-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+.admin-user-list button {
+  flex-direction: column;
+}
+.community-card dl > div {
+  display: flex;
+  gap: 16px;
+  margin: 8px 0;
+}
+.community-card dt {
+  min-width: 110px;
+  color: var(--muted);
+}
+.community-card dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.settings-tabs {
+  flex-wrap: wrap;
+}
+@media (max-width: 760px) {
+  .community-page {
+    padding: 16px;
+    grid-column: 1/-1;
+  }
+  .community-card {
+    padding: 18px;
+    border-radius: 18px;
+  }
+  .community-page h1 {
+    font-size: 25px;
+  }
+  .primary-nav-links {
+    overflow-x: auto;
+    min-width: 0;
+  }
+  .rail .primary-nav-links .icon-button {
+    flex-shrink: 0;
+  }
+  .chat-privacy-note {
+    font-size: 10px;
+    padding: 6px 14px;
+  }
+  .community-actions {
+    gap: 8px;
+  }
+  .attachment-label {
+    max-width: 100%;
+  }
+}

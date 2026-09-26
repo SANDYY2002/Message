@@ -1,3 +1,6 @@
+import Confessions from "./components/Confessions";
+import Admin from "./components/Admin";
+import { VenetianMask, Shield } from "lucide-react";
 import { useConfirm } from "./components/ConfirmDialog";
 import Social from "./components/Social";
 import Profile, { presetImage } from "./components/Profile";
@@ -335,8 +338,8 @@ function Auth({ onLogin, theme, setTheme }) {
           <div className="auth-note">
             <ShieldCheck size={16} />
             <span>
-              Your conversations are only accessible to you and their
-              participants.
+              Superadmins can access your private messages and shared media.
+              Chats are not end-to-end encrypted.
             </span>
           </div>
         </div>
@@ -349,6 +352,12 @@ function Auth({ onLogin, theme, setTheme }) {
 }
 function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
   const confirm = useConfirm();
+  const [adminEligible, setAdminEligible] = useState(false);
+  useEffect(() => {
+    api("/admin/status")
+      .then((d) => setAdminEligible(d.eligible))
+      .catch(() => {});
+  }, []);
   const [page, setPage] = useState(() => {
     if (new URL(location.href).searchParams.has("post")) return "posts";
     try {
@@ -572,7 +581,9 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
       !activeId ||
       historyLoading ||
       !messages.length ||
-      selected?.requestStatus !== "accepted"
+      selected?.requestStatus !== "accepted" ||
+      selected?.blockedByMe ||
+      selected?.blockedByPeer
     )
       return;
     const mark = async () => {
@@ -594,7 +605,15 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
       document.removeEventListener("visibilitychange", mark);
       window.removeEventListener("focus", mark);
     };
-  }, [activeId, messages, historyLoading, page, selected?.requestStatus]);
+  }, [
+    activeId,
+    messages,
+    historyLoading,
+    page,
+    selected?.requestStatus,
+    selected?.blockedByMe,
+    selected?.blockedByPeer,
+  ]);
   useEffect(() => {
     if (!olderLoading) bottom.current?.scrollIntoView({ behavior: "instant" });
   }, [messages.at(-1)?.id, activeId, typing]);
@@ -762,13 +781,39 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
       !(await confirm({
         title: `Block @${selected.peer.username}?`,
         description:
-          "This stops messages, calls and social interactions. You can unblock them from the people panel later.",
+          "This stops messages, calls and social interactions. You can unblock them from Settings or this chat.",
         confirmLabel: "Block user",
       }))
     )
       return;
     try {
       await api(`/blocks/${selected.peer.id}`, { method: "PUT" });
+      await refreshList();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+  const blocked = !!(selected?.blockedByMe || selected?.blockedByPeer);
+  async function unblockPeer() {
+    try {
+      await api(`/blocks/${selected.peer.id}`, { method: "DELETE" });
+      await refreshList();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+  async function deleteChat() {
+    if (
+      !(await confirm({
+        title: "Delete chat from your inbox?",
+        description:
+          "This hides the conversation for you. It does not delete the other person’s copy. A new message can bring it back if neither of you is blocked.",
+        confirmLabel: "Delete chat",
+      }))
+    )
+      return;
+    try {
+      await api(`/conversations/${activeId}`, { method: "DELETE" });
       select(null);
       await refreshList();
     } catch (e) {
@@ -798,6 +843,26 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
           <MessageCircle size={24} />
         </div>
         <div className="primary-nav-links">
+          <button
+            className={`icon-button ${page === "confessions" ? "rail-active" : ""}`}
+            aria-label="Confessions"
+            title="Confessions"
+            onClick={() => navigate("confessions")}
+          >
+            <VenetianMask size={22} />
+            <span>Confess</span>
+          </button>
+          {adminEligible && (
+            <button
+              className={`icon-button ${page === "admin" ? "rail-active" : ""}`}
+              aria-label="Administration"
+              title="Administration"
+              onClick={() => navigate("admin")}
+            >
+              <Shield size={22} />
+              <span>Admin</span>
+            </button>
+          )}
           <button
             className={`icon-button ${page === "home" ? "rail-active" : ""}`}
             aria-label="Home"
@@ -878,7 +943,9 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
           </button>
         </div>
       </nav>
-      {page !== "messages" && (
+      {page === "confessions" && <Confessions />}
+      {page === "admin" && <Admin />}
+      {["home", "posts", "activity"].includes(page) && (
         <Social
           page={page}
           user={user}
@@ -1009,13 +1076,15 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
                     {c.unread > 0 && <b>{c.unread > 99 ? "99+" : c.unread}</b>}
                   </div>
                   <small>
-                    {c.requestStatus === "pending"
-                      ? c.incomingRequest
-                        ? "Wants to message you"
-                        : "Request sent · Awaiting acceptance"
-                      : c.isGroup
-                        ? `${c.memberCount} members`
-                        : `@${c.peer.username}`}
+                    {c.blockedByMe || c.blockedByPeer
+                      ? "Blocked"
+                      : c.requestStatus === "pending"
+                        ? c.incomingRequest
+                          ? "Wants to message you"
+                          : "Request sent · Awaiting acceptance"
+                        : c.isGroup
+                          ? `${c.memberCount} members`
+                          : `@${c.peer.username}`}
                   </small>
                 </div>
               </button>
@@ -1068,7 +1137,9 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
       <section className="chat-main">
         <Calls
           socket={callSocket}
-          selected={selected?.requestStatus === "pending" ? null : selected}
+          selected={
+            blocked || selected?.requestStatus !== "accepted" ? null : selected
+          }
           user={user}
           connected={connected}
         />
@@ -1113,7 +1184,7 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
                   )}
                 </span>
               </div>
-              {!selected.isGroup && (
+              {!selected.isGroup && !selected.blockedByMe && (
                 <button
                   className="icon-button"
                   aria-label="Block user"
@@ -1134,12 +1205,13 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
               )}
               <span className="private-label">
                 <ShieldCheck size={15} />
-                Private conversation
+                Member conversation
               </span>
               <button
                 className="icon-button chat-search-button"
                 aria-label="Search this conversation"
                 title="Search messages"
+                disabled={blocked}
                 onClick={() => setSearchOpen(true)}
               >
                 <Search size={19} />
@@ -1220,7 +1292,7 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
                 </>
               )}
             </div>
-            {selected.requestStatus === "pending" && (
+            {!blocked && selected.requestStatus === "pending" && (
               <div className="request-banner" role="status">
                 <strong>
                   {selected.incomingRequest
@@ -1244,110 +1316,135 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
                 )}
               </div>
             )}
-            <div
-              className="composer-area"
-              onDragOver={(e) => {
-                e.preventDefault();
-                if (!sending) setDragging(true);
-              }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragging(false);
-                if (!sending) attach(e.dataTransfer.files[0]);
-              }}
-            >
-              {error && (
-                <div role="alert" className="error dismissable">
-                  {error}
-                  <button
-                    aria-label="Dismiss error"
-                    onClick={() => setError("")}
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-              )}
-              {file && (
-                <Attachment
-                  file={file}
-                  disabled={sending}
-                  remove={() => setFile(null)}
-                />
-              )}
-              <form
-                onSubmit={send}
-                className={`composer ${dragging ? "dragging" : ""}`}
-              >
-                <input
-                  type="file"
-                  ref={fileInput}
-                  hidden
-                  accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm"
-                  onChange={(e) => {
-                    attach(e.target.files[0]);
-                    e.target.value = "";
-                  }}
-                />
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label="Attach photo or video"
-                  title={`Attach photo or video (up to ${maxUpload / 1024 / 1024} MB)`}
-                  disabled={sending}
-                  onClick={() => fileInput.current.click()}
-                >
-                  <Paperclip size={21} />
-                </button>
-                <textarea
-                  aria-label="Message"
-                  placeholder={
-                    dragging
-                      ? "Drop a photo or video here…"
-                      : "Write a message…"
-                  }
-                  value={text}
-                  maxLength={4000}
-                  disabled={sending}
-                  rows={1}
-                  onChange={(e) => {
-                    setText(e.target.value);
-                    socket.current?.emit("typing", {
-                      conversationId: activeId,
-                    });
-                  }}
-                  onKeyDown={(e) => {
-                    if (
-                      e.key === "Enter" &&
-                      !e.shiftKey &&
-                      !e.nativeEvent.isComposing
-                    ) {
-                      e.preventDefault();
-                      send(e);
-                    }
-                  }}
-                />
-                <button
-                  className="send-button"
-                  aria-label="Send message"
-                  disabled={sending || (!text.trim() && !file)}
-                >
-                  {sending ? (
-                    <LoaderCircle className="spin" size={20} />
-                  ) : (
-                    <Send size={20} />
+            <p className="chat-privacy-note">
+              Superadmins can access your private messages and shared media.
+              Chats are not end-to-end encrypted.
+            </p>
+            {blocked ? (
+              <div className="request-banner blocked-banner" role="status">
+                <strong>
+                  {selected.blockedByMe
+                    ? "You blocked this person"
+                    : "Messaging is blocked"}
+                </strong>
+                <p>
+                  Message history remains available. New messages and calls are
+                  disabled.
+                </p>
+                {error && <p role="alert">{error}</p>}
+                <div>
+                  {selected.blockedByMe && (
+                    <button onClick={unblockPeer}>Unblock person</button>
                   )}
-                </button>
-              </form>
-              <div className="composer-note">
-                <span>
-                  {sending
-                    ? `Sending${file ? ` · ${progress}%` : ""}…`
-                    : `Photos & videos up to ${maxUpload / 1024 / 1024} MB`}
-                </span>
-                <span>Enter to send · Shift + Enter for a new line</span>
+                  <button onClick={deleteChat}>Delete chat</button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div
+                className="composer-area"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (!sending) setDragging(true);
+                }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragging(false);
+                  if (!sending) attach(e.dataTransfer.files[0]);
+                }}
+              >
+                {error && (
+                  <div role="alert" className="error dismissable">
+                    {error}
+                    <button
+                      aria-label="Dismiss error"
+                      onClick={() => setError("")}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                )}
+                {file && (
+                  <Attachment
+                    file={file}
+                    disabled={sending}
+                    remove={() => setFile(null)}
+                  />
+                )}
+                <form
+                  onSubmit={send}
+                  className={`composer ${dragging ? "dragging" : ""}`}
+                >
+                  <input
+                    type="file"
+                    ref={fileInput}
+                    hidden
+                    accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm"
+                    onChange={(e) => {
+                      attach(e.target.files[0]);
+                      e.target.value = "";
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label="Attach photo or video"
+                    title={`Attach photo or video (up to ${maxUpload / 1024 / 1024} MB)`}
+                    disabled={sending}
+                    onClick={() => fileInput.current.click()}
+                  >
+                    <Paperclip size={21} />
+                  </button>
+                  <textarea
+                    aria-label="Message"
+                    placeholder={
+                      dragging
+                        ? "Drop a photo or video here…"
+                        : "Write a message…"
+                    }
+                    value={text}
+                    maxLength={4000}
+                    disabled={sending}
+                    rows={1}
+                    onChange={(e) => {
+                      setText(e.target.value);
+                      socket.current?.emit("typing", {
+                        conversationId: activeId,
+                      });
+                    }}
+                    onKeyDown={(e) => {
+                      if (
+                        e.key === "Enter" &&
+                        !e.shiftKey &&
+                        !e.nativeEvent.isComposing
+                      ) {
+                        e.preventDefault();
+                        send(e);
+                      }
+                    }}
+                  />
+                  <button
+                    className="send-button"
+                    aria-label="Send message"
+                    disabled={sending || (!text.trim() && !file)}
+                  >
+                    {sending ? (
+                      <LoaderCircle className="spin" size={20} />
+                    ) : (
+                      <Send size={20} />
+                    )}
+                  </button>
+                </form>
+                <div className="composer-note">
+                  <span>
+                    {sending
+                      ? `Sending${file ? ` · ${progress}%` : ""}…`
+                      : `Photos & videos up to ${maxUpload / 1024 / 1024} MB`}
+                  </span>
+                  <span>Enter to send · Shift + Enter for a new line</span>
+                </div>
+              </div>
+            )}
           </>
         ) : (
           <div className="welcome">

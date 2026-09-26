@@ -174,9 +174,15 @@ test("publish from both tabs, follow, engage, review requests and block", async 
       .click();
     await b.setViewportSize({ width: 1280, height: 720 });
 
-    await expect(a.getByRole("heading", { name: bn, exact: true })).toHaveCount(
-      0,
+    await expect(a.locator(".blocked-banner")).toContainText(
+      "Messaging is blocked",
     );
+    await expect(b.locator(".blocked-banner")).toContainText(
+      "You blocked this person",
+    );
+    await expect(
+      b.getByRole("textbox", { name: "Message", exact: true }),
+    ).toHaveCount(0);
     await b.getByRole("button", { name: "Home", exact: true }).click();
     await expect(
       b.locator(".post-card").filter({ hasText: `Home post ${suffix}` }),
@@ -185,6 +191,20 @@ test("publish from both tabs, follow, engage, review requests and block", async 
     await expect(b.locator(".person-card").filter({ hasText: an })).toHaveCount(
       0,
     );
+    await b.getByRole("button", { name: "Settings", exact: true }).click();
+    await b.getByRole("tab", { name: "Blocked users", exact: true }).click();
+    await expect(
+      b.getByRole("button", { name: `Unblock @${an}`, exact: true }),
+    ).toBeVisible();
+    await b
+      .getByRole("button", { name: `Unblock @${an}`, exact: true })
+      .click();
+    await expect(
+      b.getByText("No blocked users.", { exact: true }),
+    ).toBeVisible();
+    await b
+      .getByRole("button", { name: "Close settings", exact: true })
+      .click();
     await a.getByRole("button", { name: "Home", exact: true }).click();
     await a.screenshot({ path: "test-results/social-home.png" });
     await a.setViewportSize({ width: 390, height: 844 });
