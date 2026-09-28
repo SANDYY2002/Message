@@ -505,10 +505,10 @@ export default function Social({
                     <p>
                       {
                         {
-                          follow: "started following you",
-                          like: "liked your post",
-                          comment: "commented on your post",
-                          repost: "reposted your post",
+                          follow: noticeText("started following you"),
+                          like: noticeText("liked your post"),
+                          comment: noticeText("commented on your post"),
+                          repost: noticeText("reposted your post"),
                         }[a.kind]
                       }
                     </p>

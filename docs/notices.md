@@ -36,6 +36,10 @@ The catalog covers privacy/help notices, empty states, confirmation explanations
 | `NOTICE_ACCEPT_TO_CHAT_OR_REPLY_BELOW_TO_ACCEPT_AUTOMATICALLY_YOU_CAN_ALSO_DECLINE` | Accept to chat or reply below to accept automatically. You can also decline or block this person. |
 | `NOTICE_ACCESS_EXPIRES_AFTER_15_MINUTES_ENTER_A_FRESH_AUTHENTICATOR_CODE_EACH_TIME` | Access expires after 15 minutes. Enter a fresh authenticator code each time. |
 | `NOTICE_ACCOUNT_DETAILS_ARE_REQUIRED` | Account details are required. |
+| `NOTICE_ACTIVITY_COMMENT` | commented on your post |
+| `NOTICE_ACTIVITY_FOLLOW` | started following you |
+| `NOTICE_ACTIVITY_LIKE` | liked your post |
+| `NOTICE_ACTIVITY_REPOST` | reposted your post |
 | `NOTICE_ADD_A_KIND_THOUGHT` | Add a kind thought… |
 | `NOTICE_ADD_TEXT_OR_A_PHOTO_VIDEO_UP_TO_4_000_CHARACTERS` | Add text or a photo/video (up to 4,000 characters). |
 | `NOTICE_ADMINISTRATOR_ACCESS_HAS_NOT_BEEN_CONFIGURED_FOR_THIS_ACCOUNT` | Administrator access has not been configured for this account. |

@@ -259,7 +259,15 @@ function Comments({ pid, onChange }) {
               <strong>
                 {c.anonymous ? "Anonymous" : `@${c.author.username}`}
               </strong>
-              {c.status !== "published" && <small> · {c.status}</small>}
+              {c.status !== "published" && (
+                <small>
+                  {" "}
+                  ·{" "}
+                  {noticeText(
+                    c.status === "pending" ? "Awaiting review" : "Not approved",
+                  )}
+                </small>
+              )}
               <p>{c.text}</p>
               {c.isOwner && (
                 <button
