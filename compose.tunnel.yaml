@@ -7,6 +7,7 @@ x-app: &app
     NODE_ENV: production
     PORT: 4000
     PUBLIC_ORIGIN: https://${APP_DOMAIN:?Set APP_DOMAIN in .env}
+    CHAT_PRIVACY_NOTICE: ${CHAT_PRIVACY_NOTICE:-}
     COOKIE_SECURE: "true"
     TRUST_PROXY: 1
     DB_HOST: db

@@ -128,3 +128,9 @@ Admin elevation is bound to the login session, expires after 15 minutes, rejects
 Back up `secrets/admin_encryption_key` securely alongside other deployment secrets; database backups alone cannot decrypt authenticator seeds. Never commit secret files. To recover authenticator access, repeat the trusted setup command with `--reset`; this replaces the setup key and invalidates existing admin elevations. For local development, supply a persistent random 64-character hex `ADMIN_ENCRYPTION_KEY` in `backend/.env` before enrollment.
 
 Settings → Blocked users manages blocks. Direct chats remain in Chats with a blocked notice and read-only history. Unblock restores messaging according to the original request state; previously declined requests remain closed. Delete chat hides it from your own inbox only, not the other participant's copy; a future allowed message can bring it back. Blocking still prevents messages, calls, and social interactions.
+
+### Configure the chat privacy notice
+
+Set `CHAT_PRIVACY_NOTICE="Your notice here"` in the root `.env` for Docker, or `backend/.env` for local npm development. This changes the notice on both the sign-in screen and inside chats. Keep the text accurate about administrator access and encryption. Empty or missing values use the existing default disclosure. The value is displayed as plain text, not HTML; no secrets should be put in it.
+
+After changing the Docker environment, run `docker compose -f compose.tunnel.yaml up -d --no-deps --force-recreate app` and refresh the browser. A frontend rebuild is unnecessary for later notice edits. For local development, restart the backend. Only the notice is exposed by `/api/config`; private server settings are never returned.

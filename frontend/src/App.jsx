@@ -108,6 +108,9 @@ export default function App() {
       return "system";
     }
   });
+  const [privacyNotice, setPrivacyNotice] = useState(
+    "Superadmins can access your private messages and shared media. Chats are not end-to-end encrypted.",
+  );
   const [maxUpload, setMaxUpload] = useState(25 * 1024 * 1024);
   useEffect(() => {
     const m = matchMedia("(prefers-color-scheme: dark)");
@@ -126,6 +129,8 @@ export default function App() {
     setLoading(true);
     setStartupError("");
     try {
+      const settings = await api("/config");
+      setPrivacyNotice(settings.chatPrivacyNotice);
       const d = await api("/auth/me");
       setUser(d.user);
       setMaxUpload(d.maxUploadBytes);
@@ -175,16 +180,22 @@ export default function App() {
       key={user.id}
       user={user}
       onUserChange={setUser}
+      privacyNotice={privacyNotice}
       maxUpload={maxUpload}
       onLogout={() => setUser(null)}
       theme={theme}
       setTheme={setTheme}
     />
   ) : (
-    <Auth onLogin={signedIn} theme={theme} setTheme={setTheme} />
+    <Auth
+      onLogin={signedIn}
+      theme={theme}
+      setTheme={setTheme}
+      privacyNotice={privacyNotice}
+    />
   );
 }
-function Auth({ onLogin, theme, setTheme }) {
+function Auth({ onLogin, theme, setTheme, privacyNotice }) {
   const [register, setRegister] = useState(false),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
@@ -337,10 +348,7 @@ function Auth({ onLogin, theme, setTheme }) {
           </form>
           <div className="auth-note">
             <ShieldCheck size={16} />
-            <span>
-              Superadmins can access your private messages and shared media.
-              Chats are not end-to-end encrypted.
-            </span>
+            <span>{privacyNotice}</span>
           </div>
         </div>
         <footer className="auth-footer">
@@ -350,7 +358,15 @@ function Auth({ onLogin, theme, setTheme }) {
     </main>
   );
 }
-function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
+function Chat({
+  user,
+  maxUpload,
+  onLogout,
+  onUserChange,
+  theme,
+  setTheme,
+  privacyNotice,
+}) {
   const confirm = useConfirm();
   const [adminEligible, setAdminEligible] = useState(false);
   useEffect(() => {
@@ -1326,10 +1342,7 @@ function Chat({ user, maxUpload, onLogout, onUserChange, theme, setTheme }) {
                 )}
               </div>
             )}
-            <p className="chat-privacy-note">
-              Superadmins can access your private messages and shared media.
-              Chats are not end-to-end encrypted.
-            </p>
+            <p className="chat-privacy-note">{privacyNotice}</p>
             {blocked ? (
               <div className="request-banner blocked-banner" role="status">
                 <strong>

@@ -73,6 +73,10 @@ export async function createApp(io) {
     await query("SELECT 1");
     res.json({ status: "ok" });
   });
+  // Explicit public allowlist: never serialize process.env or private configuration.
+  app.get("/api/config", (_req, res) =>
+    res.json({ chatPrivacyNotice: config.chatPrivacyNotice }),
+  );
   const authLimiter = limiter(20, 15 * 60_000);
   const dummyHash = await bcrypt.hash(randomUUID(), 12);
   app.post("/api/auth/register", authLimiter, async (req, res) => {

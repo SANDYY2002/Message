@@ -36,6 +36,9 @@ if (Boolean(process.env.TURN_URLS) !== Boolean(process.env.TURN_SECRET))
   throw new Error("TURN_URLS and TURN_SECRET must be configured together");
 export const config = {
   production,
+  chatPrivacyNotice:
+    process.env.CHAT_PRIVACY_NOTICE?.trim() ||
+    "Superadmins can access your private messages and shared media. Chats are not end-to-end encrypted.",
   origin,
   secure,
   port: integer("PORT", 4000, 1, 65535),
