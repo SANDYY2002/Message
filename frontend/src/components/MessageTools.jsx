@@ -1,3 +1,4 @@
+import { noticeText } from "../notices";
 import { useEffect, useRef, useState, useId } from "react";
 import {
   Check,
@@ -32,7 +33,7 @@ export function MessageBubble({
           <strong className="group-sender">{m.senderName || "Member"}</strong>
         )}
         {m.deletedAt ? (
-          <p className="deleted-message">Message deleted</p>
+          <p className="deleted-message">{noticeText("Message deleted")}</p>
         ) : (
           <>
             {m.media &&
@@ -194,7 +195,11 @@ export function MessageAction({ action, onClose, onUpdated }) {
   }
   return (
     <Modal
-      title={deleting ? "Delete this message?" : "Edit your message"}
+      title={
+        deleting
+          ? noticeText("Delete this message?")
+          : noticeText("Edit your message")
+      }
       subtitle="YOUR CONVERSATION"
       onClose={onClose}
       busy={busy}
@@ -203,8 +208,9 @@ export function MessageAction({ action, onClose, onUpdated }) {
         {deleting ? (
           <>
             <p className="modal-explanation">
-              This removes the message and its attachment from the conversation
-              for both people. They may already have read or saved it.
+              {noticeText(
+                "This removes the message and its attachment from the conversation for both people. They may already have read or saved it.",
+              )}
             </p>
             <blockquote className="delete-preview">
               {message.text || message.media?.name}
@@ -227,7 +233,7 @@ export function MessageAction({ action, onClose, onUpdated }) {
         )}
         {error && (
           <div className="error" role="alert">
-            {error}
+            {noticeText(error)}
           </div>
         )}
         <div className="modal-buttons">
@@ -333,7 +339,7 @@ export function MessageSearch({ conversation, userId, changeKey, onClose }) {
       <div className="search-results" aria-live="polite" aria-busy={loading}>
         {error && (
           <div className="error" role="alert">
-            {error}
+            {noticeText(error)}
           </div>
         )}
         {loading ? (
@@ -345,12 +351,14 @@ export function MessageSearch({ conversation, userId, changeKey, onClose }) {
           <div className="empty-small">
             <Search size={28} />
             <p>
-              Find something in this conversation, including older messages.
+              {noticeText(
+                "Find something in this conversation, including older messages.",
+              )}
             </p>
           </div>
         ) : !matches.length && !error ? (
           <div className="empty-small">
-            <p>No matching messages.</p>
+            <p>{noticeText("No matching messages.")}</p>
           </div>
         ) : (
           matches.map((m) => (

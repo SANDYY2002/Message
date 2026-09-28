@@ -1,3 +1,4 @@
+import { noticeText } from "./notices";
 export async function api(path, options = {}) {
   const res = await fetch(`/api${path}`, {
     credentials: "same-origin",
@@ -12,7 +13,7 @@ export async function api(path, options = {}) {
   if (res.status === 204) return null;
   const data = await res.json();
   if (!res.ok) {
-    const error = new Error(data.error || "Request failed.");
+    const error = new Error(data.error || noticeText("Request failed."));
     error.status = res.status;
     if (res.status === 401) window.dispatchEvent(new Event("session-expired"));
     throw error;
@@ -44,7 +45,9 @@ export function uploadMessage(
         data = JSON.parse(xhr.responseText);
       } catch {
         reject(
-          new Error("Unexpected server response. Your draft is preserved."),
+          new Error(
+            noticeText("Unexpected server response. Your draft is preserved."),
+          ),
         );
         return;
       }
@@ -52,17 +55,21 @@ export function uploadMessage(
       else {
         if (xhr.status === 401)
           window.dispatchEvent(new Event("session-expired"));
-        reject(new Error(data.error || "Could not send this message."));
+        reject(
+          new Error(data.error || noticeText("Could not send this message.")),
+        );
       }
     };
     xhr.onerror = () =>
       reject(
         new Error(
-          "Connection lost. Try sending again; your draft is preserved.",
+          noticeText(
+            "Connection lost. Try sending again; your draft is preserved.",
+          ),
         ),
       );
     xhr.ontimeout = () =>
-      reject(new Error("Upload timed out. Please try again."));
+      reject(new Error(noticeText("Upload timed out. Please try again.")));
     xhr.send(form);
   });
 }

@@ -1,3 +1,4 @@
+import { noticeText } from "./notices.js";
 import { mountConfessions, storageUsed } from "./confessions.js";
 import { mountAdmin } from "./admin.js";
 import { mountSocial } from "./social.js";
@@ -53,7 +54,9 @@ export async function createApp(io) {
       !["GET", "HEAD", "OPTIONS"].includes(req.method) &&
       req.headers.origin !== config.origin
     )
-      return next(new HttpError(403, "Request origin is not allowed."));
+      return next(
+        new HttpError(403, noticeText("Request origin is not allowed.")),
+      );
     next();
   });
   app.use(express.json({ limit: "32kb" }));
@@ -64,7 +67,9 @@ export async function createApp(io) {
       standardHeaders: "draft-8",
       legacyHeaders: false,
       ...(keyGenerator ? { keyGenerator } : {}),
-      message: { error: "Too many requests. Please try again shortly." },
+      message: {
+        error: noticeText("Too many requests. Please try again shortly."),
+      },
     });
   // Coarse network protection, with a separate authenticated budget below.
   // Shared networks must not merge every signed-in account into one small quota.
@@ -75,7 +80,10 @@ export async function createApp(io) {
   });
   // Explicit public allowlist: never serialize process.env or private configuration.
   app.get("/api/config", (_req, res) =>
-    res.json({ chatPrivacyNotice: config.chatPrivacyNotice }),
+    res.json({
+      chatPrivacyNotice: config.chatPrivacyNotice,
+      notices: config.notices,
+    }),
   );
   const authLimiter = limiter(20, 15 * 60_000);
   const dummyHash = await bcrypt.hash(randomUUID(), 12);
@@ -90,7 +98,7 @@ export async function createApp(io) {
       );
     } catch (e) {
       if (e.code === "ER_DUP_ENTRY")
-        throw new HttpError(409, "That username is already taken.");
+        throw new HttpError(409, noticeText("That username is already taken."));
       throw e;
     }
     await issueSession(res, result.insertId);
@@ -103,14 +111,17 @@ export async function createApp(io) {
     const [u] = await query("SELECT * FROM users WHERE username=?", [username]);
     const valid = await bcrypt.compare(password, u?.password_hash || dummyHash);
     if (!u || !valid)
-      throw new HttpError(401, "Incorrect username or password.");
+      throw new HttpError(401, noticeText("Incorrect username or password."));
     await transaction(async (q) => {
       const [current] = await q(
         "SELECT password_hash FROM users WHERE id=? FOR UPDATE",
         [u.id],
       );
       if (current.password_hash !== u.password_hash)
-        throw new HttpError(401, "Password changed. Please sign in again.");
+        throw new HttpError(
+          401,
+          noticeText("Password changed. Please sign in again."),
+        );
       await issueSession(res, u.id, q);
     });
     res.json({
@@ -222,9 +233,9 @@ export async function createApp(io) {
       const uid = req.auth.user.id,
         peer = id(req.body?.userId);
       if (uid === peer)
-        throw new HttpError(400, "Choose someone else to message.");
+        throw new HttpError(400, noticeText("Choose someone else to message."));
       if (!(await query("SELECT id FROM users WHERE id=?", [peer])).length)
-        throw new HttpError(404, "User not found.");
+        throw new HttpError(404, noticeText("User not found."));
       const c = await transaction(async (q) => {
         await lockUsers(q, [uid, peer]);
         await allowInteraction(uid, peer, q);
@@ -237,7 +248,10 @@ export async function createApp(io) {
           [Math.min(uid, peer), Math.max(uid, peer)],
         );
         if (c.request_status === "declined")
-          throw new HttpError(403, "This message request is closed.");
+          throw new HttpError(
+            403,
+            noticeText("This message request is closed."),
+          );
         await q(
           "DELETE FROM hidden_chats WHERE user_id=? AND conversation_id=?",
           [uid, c.id],
@@ -299,7 +313,7 @@ export async function createApp(io) {
       )
         throw new HttpError(
           400,
-          "Message does not belong to this conversation.",
+          noticeText("Message does not belong to this conversation."),
         );
       if (c.kind === "group") {
         await q(
@@ -358,7 +372,7 @@ export async function createApp(io) {
         if (!text && !req.file)
           throw new HttpError(
             400,
-            "Write a message or attach a photo or video.",
+            noticeText("Write a message or attach a photo or video."),
           );
         let mime = null;
         if (req.file) {
@@ -376,7 +390,9 @@ export async function createApp(io) {
           )
             throw new HttpError(
               415,
-              "Supported files: JPG, PNG, WebP, GIF, MP4, and WebM.",
+              noticeText(
+                "Supported files: JPG, PNG, WebP, GIF, MP4, and WebM.",
+              ),
             );
         }
         const result = await transaction(async (q) => {
@@ -394,14 +410,20 @@ export async function createApp(io) {
           );
           if (existing) {
             if (existing.conversation_id !== cid)
-              throw new HttpError(409, "Retry identifier already used.");
+              throw new HttpError(
+                409,
+                noticeText("Retry identifier already used."),
+              );
             return { message: existing, created: false };
           }
           await prepareSend(currentConversation, uid, q);
           if (req.file) {
             const used = await storageUsed(q, uid);
             if (used + req.file.size > config.storageBytes)
-              throw new HttpError(413, "Your media storage allowance is full.");
+              throw new HttpError(
+                413,
+                noticeText("Your media storage allowance is full."),
+              );
           }
           await member(cid, uid, q, true);
           const row = await q(
@@ -447,7 +469,7 @@ export async function createApp(io) {
       id(req.params.id),
     ]);
     if (!m?.media_path || m.deleted_at)
-      throw new HttpError(404, "Media not found.");
+      throw new HttpError(404, noticeText("Media not found."));
     const c = await member(
       m.conversation_id,
       req.auth.user.id,
@@ -468,7 +490,7 @@ export async function createApp(io) {
     );
   });
   app.use("/api", (_req, _res, next) =>
-    next(new HttpError(404, "Endpoint not found.")),
+    next(new HttpError(404, noticeText("Endpoint not found."))),
   );
   if (config.production) {
     const frontend = path.join(backendDir, "../frontend/dist");
@@ -498,9 +520,12 @@ export async function createApp(io) {
     res.status(status).json({
       error:
         err instanceof multer.MulterError
-          ? `Upload rejected. Attach one supported file up to ${config.maxBytes / 1024 / 1024} MB.`
+          ? noticeText(
+              "Upload rejected. Attach one supported file up to {value0} MB.",
+              { value0: config.maxBytes / 1024 / 1024 },
+            )
           : status >= 500
-            ? "Something went wrong. Please try again."
+            ? noticeText("Something went wrong. Please try again.")
             : err.message,
     });
   });

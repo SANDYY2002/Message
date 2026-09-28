@@ -1,3 +1,4 @@
+import { noticeText } from "../notices";
 import { createMessageSound } from "../message-sound";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
@@ -29,7 +30,9 @@ async function worker() {
         timer = setTimeout(
           () =>
             reject(
-              new Error("Notifications could not start. Please try again."),
+              new Error(
+                noticeText("Notifications could not start. Please try again."),
+              ),
             ),
           8000,
         );
@@ -107,7 +110,7 @@ export default function Notifications({
     if (next) {
       try {
         if (!(await sound.current.unlock()))
-          throw new Error("Click Test sound to enable audio.");
+          throw new Error(noticeText("Click Test sound to enable audio."));
       } catch (e) {
         setNotice(e.message);
         return;
@@ -157,7 +160,9 @@ export default function Notifications({
   function open(cid) {
     if (latest.current.sending) {
       setNotice(
-        "Finish sending your attachment before switching conversations.",
+        noticeText(
+          "Finish sending your attachment before switching conversations.",
+        ),
       );
       return;
     }
@@ -284,11 +289,11 @@ export default function Notifications({
           )
             return;
           await reg.showNotification(
-            m.social ? "New activity" : "New message",
+            m.social ? noticeText("New activity") : noticeText("New message"),
             {
               body: m.social
-                ? "You have new activity in Message."
-                : "You have a new message in Message.",
+                ? noticeText("You have new activity in Message.")
+                : noticeText("You have a new message in Message."),
               silent: true,
               tag: m.social
                 ? `activity:${user.id}`
@@ -318,7 +323,9 @@ export default function Notifications({
       } catch {
         if (mounted.current)
           setNotice(
-            "Browser notification unavailable. New messages still appear in your inbox.",
+            noticeText(
+              "Browser notification unavailable. New messages still appear in your inbox.",
+            ),
           );
       }
     };
@@ -357,7 +364,9 @@ export default function Notifications({
     }
     if (!supported) {
       setNotice(
-        "Browser notifications need a supported browser on HTTPS or localhost.",
+        noticeText(
+          "Browser notifications need a supported browser on HTTPS or localhost.",
+        ),
       );
       return;
     }
@@ -369,8 +378,12 @@ export default function Notifications({
       if (result !== "granted") {
         setNotice(
           result === "denied"
-            ? "Notifications are blocked. Allow them in your browser’s site settings, then enable them here."
-            : "Notifications were not enabled. You can try again anytime.",
+            ? noticeText(
+                "Notifications are blocked. Allow them in your browser’s site settings, then enable them here.",
+              )
+            : noticeText(
+                "Notifications were not enabled. You can try again anytime.",
+              ),
         );
         return;
       }
@@ -384,11 +397,13 @@ export default function Notifications({
         /* Session-only setting. */
       }
       setNotice(
-        "Browser notifications enabled. Keep Message open to receive alerts.",
+        noticeText(
+          "Browser notifications enabled. Keep Message open to receive alerts.",
+        ),
       );
     } catch (e) {
       if (mounted.current)
-        setNotice(e.message || "Could not enable notifications.");
+        setNotice(e.message || noticeText("Could not enable notifications."));
     } finally {
       if (mounted.current) setBusy(false);
     }
@@ -446,7 +461,7 @@ export default function Notifications({
             </div>
             {notice && (
               <p role="status">
-                {notice}
+                {noticeText(notice)}
                 <button
                   className="icon-button"
                   aria-label="Dismiss notification status"
@@ -468,8 +483,8 @@ export default function Notifications({
               disabled={sending}
             >
               {toast.social
-                ? "New activity · Open activity"
-                : "New message · Open conversation"}
+                ? noticeText("New activity · Open activity")
+                : noticeText("New message · Open conversation")}
             </button>
             <button
               className="icon-button"

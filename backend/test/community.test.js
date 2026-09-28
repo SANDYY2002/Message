@@ -4,6 +4,10 @@ import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
 if (!process.env.DB_NAME?.endsWith("_test"))
   throw new Error("Use a dedicated _test database.");
+process.env.APP_NOTICES_JSON = JSON.stringify({
+  CONFESSION_PRIVACY_NOTICE: "Custom community privacy notice",
+  NOTICE_ENTER_1_VALUE_CHARACTERS: "Please enter 1 to {value0} characters.",
+});
 process.env.NODE_ENV = "test";
 process.env.PUBLIC_ORIGIN = "http://localhost:5173";
 process.env.COOKIE_SECURE = "false";
@@ -301,4 +305,20 @@ test("authenticated request budgets are isolated across accounts sharing an IP",
     await Promise.all(Array.from({ length: 20 }, () => req("/auth/me", a)));
   assert.equal((await req("/auth/me", a)).status, 429);
   assert.equal((await req("/auth/me", b)).status, 200);
+});
+
+test("public notice configuration is allowlisted and API validation uses customized text", async () => {
+  const settings = await req("/config", null);
+  assert.equal(settings.status, 200);
+  assert.deepEqual(Object.keys(settings.data).sort(), [
+    "chatPrivacyNotice",
+    "notices",
+  ]);
+  assert.equal(
+    settings.data.notices.CONFESSION_PRIVACY_NOTICE,
+    "Custom community privacy notice",
+  );
+  const result = await req("/confessions/1/comments", b, "POST", { text: "" });
+  assert.equal(result.status, 400);
+  assert.equal(result.data.error, "Please enter 1 to 1000 characters.");
 });

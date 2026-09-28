@@ -1,3 +1,4 @@
+import { noticeText } from "../notices";
 import {
   createContext,
   useCallback,
@@ -87,7 +88,7 @@ function Confirmation({ request, finish }) {
       </div>
       <span className="small-label">YOU'RE IN CONTROL</span>
       <h2 id="confirmation-title">{request.title}</h2>
-      <p id="confirmation-description">{request.description}</p>
+      <p id="confirmation-description">{noticeText(request.description)}</p>
       <div className="confirmation-actions">
         <button
           ref={cancel}

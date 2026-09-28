@@ -1,0 +1,275 @@
+# Configure application notices
+
+Set `APP_NOTICES_JSON` in the root `.env` when using Docker, or in `backend/.env` for local npm development. It is one JSON object mapping the keys below to your replacement text. Unlisted keys keep their defaults; empty text also keeps the default. The text is public, so never include credentials or other secrets.
+
+```dotenv
+APP_NOTICES_JSON='{"CONFESSION_PRIVACY_NOTICE":"Authors are hidden from members, but visible to superadmins.","BLOCKED_CHAT_NOTICE":"Chat history is available. Sending messages and calling are blocked.","NOTICE_POST_LINK_COPIED":"Link copied!"}'
+```
+
+Keep the JSON on one physical line, enclosed in single quotes as shown. Escape double quotes within a message as `\"` and newlines as `\n`. If your text contains a literal apostrophe, encode it as `\u0027` to avoid ending the outer single-quoted dotenv value. Preserve the substance of privacy/security disclosures when changing their wording.
+
+`CHAT_PRIVACY_NOTICE` remains supported as a standalone setting. A `CHAT_PRIVACY_NOTICE` entry inside `APP_NOTICES_JSON` takes precedence over it. No other private environment settings are sent to browsers.
+
+After the first code update/rebuild, later text edits only need:
+
+```powershell
+docker compose -f compose.tunnel.yaml up -d --no-deps --force-recreate app
+```
+
+Refresh browser tabs afterward. For local npm development, restart the backend. Notices are loaded at server startup. Invalid JSON, unknown keys, oversized values, and unknown placeholders produce a startup error identifying the issue without printing notice values.
+
+`{value0}`, `{value1}`, and similar placeholders insert the same dynamic details as the original message. Keep them when those details should remain visible. Changing text does not change authentication, moderation, limits, blocking, or other behavior. Replacements render as plain text, never HTML. Browser/operating-system permission prompts and other users’ messages are not application notices and are not changed. If the initial configuration request cannot reach the server, the startup error uses its built-in fallback.
+
+The catalog covers privacy/help notices, empty states, confirmation explanations/titles, operation feedback, app-generated validation errors, and notification/call messages. Navigation labels and ordinary form labels are not notice settings.
+
+## Notice catalog
+
+| Key | Default text |
+| --- | --- |
+| `ADMIN_AUDIT_NOTICE` | Sensitive access is recorded in the audit log. |
+| `ADMIN_PRIVATE_MESSAGES_NOTICE` | Private message access is audited. |
+| `BLOCKED_CHAT_NOTICE` | Message history remains available. New messages and calls are disabled. |
+| `CHAT_PRIVACY_NOTICE` | Superadmins can access your private messages and shared media. Chats are not end-to-end encrypted. |
+| `CONFESSION_PRIVACY_NOTICE` | Your identity is hidden from other users. Superadmins can identify confession authors and anonymous commenters. Photos, videos and details you share may reveal your identity. Flagged text waits for review. |
+| `NOTICE_300_VISIBLE_ON_YOUR_PROFILE` | /300 · Visible on your profile |
+| `NOTICE_3_24_LETTERS_NUMBERS_OR_UNDERSCORES_USERNAMES_ARE_LOWERCASE_AND_MUST_BE_UN` | 3–24 letters, numbers or underscores. Usernames are lowercase and must be unique. Your chats stay with your account. |
+| `NOTICE_ACCEPT_TO_CHAT_OR_REPLY_BELOW_TO_ACCEPT_AUTOMATICALLY_YOU_CAN_ALSO_DECLINE` | Accept to chat or reply below to accept automatically. You can also decline or block this person. |
+| `NOTICE_ACCESS_EXPIRES_AFTER_15_MINUTES_ENTER_A_FRESH_AUTHENTICATOR_CODE_EACH_TIME` | Access expires after 15 minutes. Enter a fresh authenticator code each time. |
+| `NOTICE_ACCOUNT_DETAILS_ARE_REQUIRED` | Account details are required. |
+| `NOTICE_ADD_A_KIND_THOUGHT` | Add a kind thought… |
+| `NOTICE_ADD_TEXT_OR_A_PHOTO_VIDEO_UP_TO_4_000_CHARACTERS` | Add text or a photo/video (up to 4,000 characters). |
+| `NOTICE_ADMINISTRATOR_ACCESS_HAS_NOT_BEEN_CONFIGURED_FOR_THIS_ACCOUNT` | Administrator access has not been configured for this account. |
+| `NOTICE_ASK_YOUR_FRIEND_TO_CREATE_AN_ACCOUNT_THEN_SEARCH_FOR_THEIR_USERNAME` | Ask your friend to create an account, then search for their username. |
+| `NOTICE_AVATAR_NOT_FOUND` | Avatar not found. |
+| `NOTICE_AVATAR_UPDATED` | Avatar updated. |
+| `NOTICE_AWAITING_ACCEPTANCE` | Awaiting acceptance |
+| `NOTICE_AWAITING_REVIEW` | Awaiting review |
+| `NOTICE_A_CONVERSATION_THAT_FEELS_LIKE_BEING_THERE` | A conversation that feels like being there. |
+| `NOTICE_A_QUICK_HELLO_A_PHOTO_FROM_YOUR_DAY` | A quick hello. A photo from your day. |
+| `NOTICE_A_TEXT_MESSAGE_CANNOT_BE_EMPTY` | A text message cannot be empty. |
+| `NOTICE_A_VALID_MESSAGE_RETRY_IDENTIFIER_IS_REQUIRED` | A valid message retry identifier is required. |
+| `NOTICE_A_VALID_MESSAGE_VERSION_IS_REQUIRED` | A valid message version is required. |
+| `NOTICE_BE_THE_FIRST_TO_SHARE_A_CONFESSION` | Be the first to share a confession. |
+| `NOTICE_BIO_MUST_BE_AT_MOST_300_CHARACTERS` | Bio must be at most 300 characters. |
+| `NOTICE_BIO_UPDATED` | Bio updated. |
+| `NOTICE_BLOCKED_CONVERSATIONS_STAY_IN_CHATS_UNBLOCKING_DOES_NOT_RESTORE_FOLLOWS` | Blocked conversations stay in Chats. Unblocking does not restore follows. |
+| `NOTICE_BLOCK_VALUE` | Block @{value0}? |
+| `NOTICE_BROWSER_NOTIFICATIONS_ENABLED_KEEP_MESSAGE_OPEN_TO_RECEIVE_ALERTS` | Browser notifications enabled. Keep Message open to receive alerts. |
+| `NOTICE_BROWSER_NOTIFICATIONS_NEED_A_SUPPORTED_BROWSER_ON_HTTPS_OR_LOCALHOST` | Browser notifications need a supported browser on HTTPS or localhost. |
+| `NOTICE_BROWSER_NOTIFICATION_UNAVAILABLE_NEW_MESSAGES_STILL_APPEAR_IN_YOUR_INBOX` | Browser notification unavailable. New messages still appear in your inbox. |
+| `NOTICE_CALLING_NEEDS_A_SUPPORTED_BROWSER_ON_HTTPS_OR_LOCALHOST` | Calling needs a supported browser on HTTPS or localhost. |
+| `NOTICE_CALL_ANSWERED_ON_ANOTHER_DEVICE` | Call answered on another device. |
+| `NOTICE_CALL_CANCELLED` | Call cancelled. |
+| `NOTICE_CALL_CONNECTION_WAS_LOST` | Call connection was lost. |
+| `NOTICE_CALL_DECLINED` | Call declined. |
+| `NOTICE_CALL_DISCONNECTED` | Call disconnected. |
+| `NOTICE_CALL_ENDED` | Call ended. |
+| `NOTICE_CALL_ENDED_BECAUSE_THE_SERVER_CONNECTION_WAS_LOST` | Call ended because the server connection was lost. |
+| `NOTICE_CALL_FAILED` | Call failed. |
+| `NOTICE_CALL_REQUEST_TIMED_OUT_PLEASE_RECONNECT_AND_TRY_AGAIN` | Call request timed out. Please reconnect and try again. |
+| `NOTICE_CALL_SERVICE_IS_UNAVAILABLE_TRY_AGAIN` | Call service is unavailable. Try again. |
+| `NOTICE_CHECKING_ACCESS` | Checking access… |
+| `NOTICE_CHOOSE_1_49_OTHER_PEOPLE` | Choose 1–49 other people. |
+| `NOTICE_CHOOSE_ANOTHER_USER` | Choose another user. |
+| `NOTICE_CHOOSE_AN_ANONYMITY_OPTION` | Choose an anonymity option. |
+| `NOTICE_CHOOSE_AN_AVAILABLE_AVATAR` | Choose an available avatar. |
+| `NOTICE_CHOOSE_AN_EXISTING_MEMBER_AS_OWNER` | Choose an existing member as owner. |
+| `NOTICE_CHOOSE_AN_IMAGE` | Choose an image. |
+| `NOTICE_CHOOSE_AN_IMAGE_UP_TO_2_MB` | Choose an image up to 2 MB. |
+| `NOTICE_CHOOSE_APPROVE_OR_REJECT` | Choose approve or reject. |
+| `NOTICE_CHOOSE_AT_LEAST_ONE_OTHER_PERSON` | Choose at least one other person. |
+| `NOTICE_CHOOSE_AT_LEAST_ONE_OTHER_PERSON_UP_TO_50_MEMBERS_INCLUDING_YOU_ADDED_MEMB` | Choose at least one other person. Up to 50 members, including you. Added members can read this group’s history. |
+| `NOTICE_CHOOSE_A_FILE_SMALLER_THAN_VALUE_MB` | Choose a file smaller than {value0} MB. |
+| `NOTICE_CHOOSE_A_JPG_PNG_OR_WEBP_IMAGE` | Choose a JPG, PNG or WebP image. |
+| `NOTICE_CHOOSE_A_JPG_PNG_WEBP_GIF_MP4_OR_WEBM_FILE` | Choose a JPG, PNG, WebP, GIF, MP4, or WebM file. |
+| `NOTICE_CHOOSE_BROWSER_ALERTS_AND_A_MESSAGE_CHIME_YOUR_PREFERENCES_ARE_SAVED_FOR_T` | Choose browser alerts and a message chime. Your preferences are saved for this account on this browser. |
+| `NOTICE_CHOOSE_FOLLOWERS_OR_FOLLOWING` | Choose followers or following. |
+| `NOTICE_CHOOSE_JPG_PNG_WEBP_GIF_MP4_OR_WEBM` | Choose JPG, PNG, WebP, GIF, MP4 or WebM. |
+| `NOTICE_CHOOSE_ONE_JPG_PNG_OR_WEBP_IMAGE_UP_TO_2_MB` | Choose one JPG, PNG or WebP image up to 2 MB. |
+| `NOTICE_CHOOSE_SOMEONE_ELSE_TO_MESSAGE` | Choose someone else to message. |
+| `NOTICE_CHOOSE_UP_TO_30_NOTIFICATIONS` | Choose up to 30 notifications. |
+| `NOTICE_CLICK_TEST_SOUND_TO_ENABLE_AUDIO` | Click Test sound to enable audio. |
+| `NOTICE_COMMENT_ADDED` | Comment added. |
+| `NOTICE_COMMENT_NOT_FOUND` | Comment not found. |
+| `NOTICE_CONFESSION_NOT_FOUND` | Confession not found. |
+| `NOTICE_CONNECTED` | Connected |
+| `NOTICE_CONNECTING` | Connecting… |
+| `NOTICE_CONNECTION_LOST_TRY_SENDING_AGAIN_YOUR_DRAFT_IS_PRESERVED` | Connection lost. Try sending again; your draft is preserved. |
+| `NOTICE_CONVERSATION_NOT_FOUND` | Conversation not found. |
+| `NOTICE_COULD_NOT_CONNECT_THE_CALL_A_TURN_RELAY_MAY_BE_NEEDED_FOR_THESE_NETWORKS` | Could not connect the call. A TURN relay may be needed for these networks. |
+| `NOTICE_COULD_NOT_ENABLE_NOTIFICATIONS` | Could not enable notifications. |
+| `NOTICE_COULD_NOT_SEND_THIS_MESSAGE` | Could not send this message. |
+| `NOTICE_CREATE_AN_ACCOUNT_AND_START_YOUR_FIRST_CONVERSATION` | Create an account and start your first conversation. |
+| `NOTICE_CURRENT_PASSWORD_IS_INCORRECT` | Current password is incorrect. |
+| `NOTICE_DECLINE_THIS_REQUEST` | Decline this request? |
+| `NOTICE_DELETE_CHAT_FROM_YOUR_INBOX` | Delete chat from your inbox? |
+| `NOTICE_DELETE_COMMENT` | Delete comment? |
+| `NOTICE_DELETE_CONFESSION` | Delete confession? |
+| `NOTICE_DELETE_THIS_MESSAGE` | Delete this message? |
+| `NOTICE_DELETE_THIS_POST` | Delete this post? |
+| `NOTICE_DISPLAY_NAME_MUST_BE_1_60_CHARACTERS` | Display name must be 1–60 characters. |
+| `NOTICE_DROP_A_PHOTO_OR_VIDEO_HERE` | Drop a photo or video here… |
+| `NOTICE_EDIT_YOUR_MESSAGE` | Edit your message |
+| `NOTICE_ENDPOINT_NOT_FOUND` | Endpoint not found. |
+| `NOTICE_ENTER_1_VALUE_CHARACTERS` | Enter 1–{value0} characters. |
+| `NOTICE_ENTER_A_GROUP_NAME` | Enter a group name. |
+| `NOTICE_ENTER_YOUR_CURRENT_PASSWORD` | Enter your current password. |
+| `NOTICE_FIND_A_FRIEND_BY_USERNAME_AND_START_TALKING` | Find a friend by username and start talking. |
+| `NOTICE_FIND_SOMETHING_IN_THIS_CONVERSATION_INCLUDING_OLDER_MESSAGES` | Find something in this conversation, including older messages. |
+| `NOTICE_FIND_YOUR_PEOPLE_SHARE_A_MOMENT` | Find your people. Share a moment. |
+| `NOTICE_FINISH_SENDING_YOUR_ATTACHMENT_BEFORE_SWITCHING_CONVERSATIONS` | Finish sending your attachment before switching conversations. |
+| `NOTICE_FOLLOW_PEOPLE_TO_SEE_THEIR_POSTS_HERE` | Follow people to see their posts here. |
+| `NOTICE_FOLLOW_SOMEONE_NEW_OR_START_A_CONVERSATION` | Follow someone new or start a conversation. |
+| `NOTICE_GETTING_THINGS_READY` | Getting things ready… |
+| `NOTICE_GOOD_TO_SEE_YOU` | Good to see you. |
+| `NOTICE_GROUPS_CAN_HAVE_AT_MOST_50_MEMBERS` | Groups can have at most 50 members. |
+| `NOTICE_GROUP_NAME_MUST_BE_1_60_CHARACTERS` | Group name must be 1–60 characters. |
+| `NOTICE_GROUP_NOT_FOUND` | Group not found. |
+| `NOTICE_IMAGE_COULD_NOT_BE_READ_USE_AN_IMAGE_UNDER_16_MEGAPIXELS` | Image could not be read. Use an image under 16 megapixels. |
+| `NOTICE_IMAGE_IS_TOO_LARGE_AFTER_PROCESSING` | Image is too large after processing. |
+| `NOTICE_INCOMING` | Incoming |
+| `NOTICE_INCOMING_CALL` | Incoming call |
+| `NOTICE_INCORRECT_USERNAME_OR_PASSWORD` | Incorrect username or password. |
+| `NOTICE_INTERACT_WITH_THE_ORIGINAL_POST` | Interact with the original post. |
+| `NOTICE_INVALID_IDENTIFIER` | Invalid identifier. |
+| `NOTICE_INVALID_PAGE` | Invalid page. |
+| `NOTICE_JPG_PNG_OR_WEBP_UP_TO_2_MB_AND_16_MEGAPIXELS_IMAGES_ARE_CROPPED_FROM_THE_C` | JPG, PNG or WebP, up to 2 MB and 16 megapixels. Images are cropped from the center to a 1:1 square. |
+| `NOTICE_KEEP_MESSAGE_OPEN_TO_RECEIVE_ALERTS_THE_CONVERSATION_YOU_RE_ACTIVELY_READI` | Keep Message open to receive alerts. The conversation you’re actively reading stays quiet. |
+| `NOTICE_LEAVE_THIS_GROUP` | Leave this group? |
+| `NOTICE_LOADING` | Loading… |
+| `NOTICE_LOADING_CALLS` | Loading calls… |
+| `NOTICE_MAKE_THEIR_DAY_A_LITTLE_BRIGHTER` | Make their day a little brighter. |
+| `NOTICE_MAKE_YOURSELF_AT_HOME` | Make yourself at home. |
+| `NOTICE_MANAGE_BLOCKED_USERS_IN_SETTINGS` | Manage blocked users in Settings. |
+| `NOTICE_MARKED_AS_READ` | Marked as read. |
+| `NOTICE_MEDIA_NOT_FOUND` | Media not found. |
+| `NOTICE_MESSAGE_DELETED` | Message deleted |
+| `NOTICE_MESSAGE_DOES_NOT_BELONG_TO_THIS_CONVERSATION` | Message does not belong to this conversation. |
+| `NOTICE_MESSAGE_MUST_BE_AT_MOST_4_000_CHARACTERS` | Message must be at most 4,000 characters. |
+| `NOTICE_MESSAGE_NOT_FOUND` | Message not found. |
+| `NOTICE_MESSAGE_REQUEST` | Message request |
+| `NOTICE_MESSAGE_TEXT_IS_REQUIRED` | Message text is required. |
+| `NOTICE_MESSAGING_IS_BLOCKED` | Messaging is blocked |
+| `NOTICE_MISSED_CALL` | Missed call |
+| `NOTICE_MISSED_CALL_NO_ANSWER` | Missed call / no answer. |
+| `NOTICE_NEW_ACTIVITY` | New activity |
+| `NOTICE_NEW_ACTIVITY_OPEN_ACTIVITY` | New activity · Open activity |
+| `NOTICE_NEW_FOLLOWS_LIKES_COMMENTS_AND_REPOSTS_WILL_APPEAR_HERE` | New follows, likes, comments and reposts will appear here. |
+| `NOTICE_NEW_INTRODUCTIONS_APPEAR_HERE_FOR_YOU_TO_ACCEPT_OR_DECLINE` | New introductions appear here for you to accept or decline. |
+| `NOTICE_NEW_MESSAGE` | New message |
+| `NOTICE_NEW_MESSAGE_OPEN_CONVERSATION` | New message · Open conversation |
+| `NOTICE_NEW_PASSWORDS_DO_NOT_MATCH` | New passwords do not match. |
+| `NOTICE_NOTHING_WAITING_FOR_REVIEW` | Nothing waiting for review. |
+| `NOTICE_NOTIFICATIONS_ARE_BLOCKED_ALLOW_THEM_IN_YOUR_BROWSER_S_SITE_SETTINGS_THEN` | Notifications are blocked. Allow them in your browser’s site settings, then enable them here. |
+| `NOTICE_NOTIFICATIONS_COULD_NOT_START_PLEASE_TRY_AGAIN` | Notifications could not start. Please try again. |
+| `NOTICE_NOTIFICATIONS_WERE_NOT_ENABLED_YOU_CAN_TRY_AGAIN_ANYTIME` | Notifications were not enabled. You can try again anytime. |
+| `NOTICE_NOT_APPROVED` | Not approved |
+| `NOTICE_NO_ANSWER` | No answer. |
+| `NOTICE_NO_BIO_YET` | No bio yet. |
+| `NOTICE_NO_BLOCKED_USERS` | No blocked users. |
+| `NOTICE_NO_CALLS_YET` | No calls yet. |
+| `NOTICE_NO_MATCHING_MESSAGES` | No matching messages. |
+| `NOTICE_NO_OTHER_USERS_ARE_AVAILABLE_ASK_ANOTHER_PERSON_TO_REGISTER_FIRST` | No other users are available. Ask another person to register first. |
+| `NOTICE_NO_PEOPLE_FOUND` | No people found. |
+| `NOTICE_NO_PEOPLE_YET` | No people yet. |
+| `NOTICE_NO_USERS_MATCH_THAT_SEARCH` | No users match that search. |
+| `NOTICE_ONE_OR_MORE_PEOPLE_NO_LONGER_EXIST` | One or more people no longer exist. |
+| `NOTICE_ONLY_THE_GROUP_OWNER_CAN_DO_THIS` | Only the group owner can do this. |
+| `NOTICE_ONLY_THE_RECIPIENT_CAN_REVIEW_THIS_REQUEST` | Only the recipient can review this request. |
+| `NOTICE_OUTGOING` | Outgoing |
+| `NOTICE_PASSWORD_CHANGED_PLEASE_SIGN_IN_AGAIN` | Password changed. Please sign in again. |
+| `NOTICE_PASSWORD_OR_AUTHENTICATOR_CODE_IS_INCORRECT` | Password or authenticator code is incorrect. |
+| `NOTICE_PASSWORD_OR_AUTHENTICATOR_CODE_IS_INCORRECT_OR_THE_CODE_WAS_ALREADY_USED` | Password or authenticator code is incorrect, or the code was already used. |
+| `NOTICE_PHOTOS_VIDEOS_UP_TO_VALUE_MB` | Photos & videos up to {value0} MB |
+| `NOTICE_PLEASE_SIGN_IN` | Please sign in. |
+| `NOTICE_PLEASE_SIGN_IN_AGAIN` | Please sign in again. |
+| `NOTICE_POST_DELETED` | Post deleted. |
+| `NOTICE_POST_LINK_COPIED` | Post link copied. |
+| `NOTICE_POST_LINK_VALUE_POST_VALUE` | Post link: {value0}/?post={value1} |
+| `NOTICE_POST_NOT_FOUND` | Post not found. |
+| `NOTICE_POST_PUBLISHED` | Post published. |
+| `NOTICE_POST_SHARED_WITH_THE_COMMUNITY` | Post shared with the community. |
+| `NOTICE_PREPARING_MICROPHONE` | Preparing microphone… |
+| `NOTICE_PROFILE_NOT_FOUND` | Profile not found. |
+| `NOTICE_PUBLISH_A_POST_OR_EXPLORE_ANOTHER_FEED` | Publish a post or explore another feed. |
+| `NOTICE_RECONNECTING` | Reconnecting… |
+| `NOTICE_RECONNECT_BEFORE_MAKING_A_CALL` | Reconnect before making a call. |
+| `NOTICE_REMOVE_GROUP_MEMBER` | Remove group member? |
+| `NOTICE_REPORT` | Report:  |
+| `NOTICE_REPORT_SENT_TO_THE_MODERATION_TEAM` | Report sent to the moderation team. |
+| `NOTICE_REPOST_REMOVED` | Repost removed. |
+| `NOTICE_REQUEST_FAILED` | Request failed. |
+| `NOTICE_REQUEST_ORIGIN_IS_NOT_ALLOWED` | Request origin is not allowed. |
+| `NOTICE_RETRY_IDENTIFIER_ALREADY_USED` | Retry identifier already used. |
+| `NOTICE_RINGING` | Ringing… |
+| `NOTICE_SAY_HELLO_TO` | Say hello to  |
+| `NOTICE_SEARCH_MUST_BE_1_120_CHARACTERS` | Search must be 1–120 characters. |
+| `NOTICE_SELECT_AT_LEAST_ONE_PERSON_BELOW_TO_CREATE_YOUR_GROUP` | Select at least one person below to create your group. |
+| `NOTICE_SENDINGVALUE` | Sending{value0}… |
+| `NOTICE_SHARE_WHAT_S_ON_YOUR_MIND_LEAVE_YOUR_NAME_BEHIND` | Share what’s on your mind. Leave your name behind. |
+| `NOTICE_SIGN_IN_TO_PICK_UP_WHERE_YOU_LEFT_OFF` | Sign in to pick up where you left off. |
+| `NOTICE_SOMETHING_WENT_WRONG_PLEASE_TRY_AGAIN` | Something went wrong. Please try again. |
+| `NOTICE_SOMETHING_YOU_VE_BEEN_WANTING_TO_SAY` | Something you’ve been wanting to say… |
+| `NOTICE_SOUND_IS_NOT_SUPPORTED_IN_THIS_BROWSER` | Sound is not supported in this browser. |
+| `NOTICE_SUBMITTED_FOR_ADMIN_REVIEW_ONLY_YOU_CAN_SEE_IT_UNTIL_APPROVED` | Submitted for admin review. Only you can see it until approved. |
+| `NOTICE_SUPPORTED_FILES_JPG_PNG_WEBP_GIF_MP4_AND_WEBM` | Supported files: JPG, PNG, WebP, GIF, MP4, and WebM. |
+| `NOTICE_THAT_USERNAME_IS_ALREADY_TAKEN` | That username is already taken. |
+| `NOTICE_THEY_WILL_LOSE_ACCESS_TO_THIS_GROUP_S_MESSAGES_AND_SHARED_MEDIA` | They will lose access to this group's messages and shared media. |
+| `NOTICE_THE_CALL_COULD_NOT_CONNECT_CHECK_YOUR_NETWORK_AND_TURN_CONFIGURATION` | The call could not connect. Check your network and TURN configuration. |
+| `NOTICE_THIS_CONFESSION_IS_AWAITING_REVIEW` | This confession is awaiting review. |
+| `NOTICE_THIS_CONVERSATION_WILL_CLOSE_AND_THE_SENDER_CANNOT_SEND_ANOTHER_INTRODUCTI` | This conversation will close and the sender cannot send another introduction in it. |
+| `NOTICE_THIS_HIDES_THE_CONVERSATION_FOR_YOU_IT_DOES_NOT_DELETE_THE_OTHER_PERSON_S` | This hides the conversation for you. It does not delete the other person’s copy. A new message can bring it back if neither of you is blocked. |
+| `NOTICE_THIS_IMAGE_COULD_NOT_BE_PROCESSED_CHOOSE_A_SMALLER_VALID_IMAGE` | This image could not be processed. Choose a smaller, valid image. |
+| `NOTICE_THIS_INTERACTION_IS_UNAVAILABLE` | This interaction is unavailable. |
+| `NOTICE_THIS_MEMBER_WILL_MANAGE_THE_GROUP_YOU_WILL_BECOME_A_REGULAR_MEMBER` | This member will manage the group. You will become a regular member. |
+| `NOTICE_THIS_MESSAGE_CHANGED_IN_ANOTHER_WINDOW_CLOSE_THE_EDITOR_AND_TRY_AGAIN` | This message changed in another window. Close the editor and try again. |
+| `NOTICE_THIS_MESSAGE_HAS_BEEN_DELETED` | This message has been deleted. |
+| `NOTICE_THIS_MESSAGE_REQUEST_IS_CLOSED` | This message request is closed. |
+| `NOTICE_THIS_PERMANENTLY_REMOVES_THE_POST_ITS_COMMENTS_AND_REPOSTS_THIS_CANNOT_BE` | This permanently removes the post, its comments and reposts. This cannot be undone. |
+| `NOTICE_THIS_PERMANENTLY_REMOVES_YOUR_COMMENT` | This permanently removes your comment. |
+| `NOTICE_THIS_REMOVES_THE_CONFESSION_COMMENTS_AND_ATTACHMENT_PERMANENTLY` | This removes the confession, comments and attachment permanently. |
+| `NOTICE_THIS_REMOVES_THE_MESSAGE_AND_ITS_ATTACHMENT_FROM_THE_CONVERSATION_FOR_BOTH` | This removes the message and its attachment from the conversation for both people. They may already have read or saved it. |
+| `NOTICE_THIS_REQUEST_IS_NO_LONGER_PENDING` | This request is no longer pending. |
+| `NOTICE_THIS_STOPS_MESSAGES_CALLS_AND_SOCIAL_INTERACTIONS_YOU_CAN_UNBLOCK_THEM_FRO` | This stops messages, calls and social interactions. You can unblock them from Settings or this chat. |
+| `NOTICE_THIS_STOPS_NEW_MESSAGES_CALLS_AND_SOCIAL_INTERACTIONS_EXISTING_CHATS_REMAI` | This stops new messages, calls and social interactions. Existing chats remain readable. You can unblock them from Settings. |
+| `NOTICE_TOO_MANY_REQUESTS_PLEASE_TRY_AGAIN_SHORTLY` | Too many requests. Please try again shortly. |
+| `NOTICE_TRANSFER_GROUP_OWNERSHIP` | Transfer group ownership? |
+| `NOTICE_TRANSFER_OWNERSHIP_BEFORE_LEAVING_NEW_MEMBERS_CAN_READ_PREVIOUS_MESSAGES` | Transfer ownership before leaving. New members can read previous messages. |
+| `NOTICE_TRANSFER_OWNERSHIP_TO_ANOTHER_MEMBER_BEFORE_LEAVING` | Transfer ownership to another member before leaving. |
+| `NOTICE_TRY_A_DIFFERENT_NAME` | Try a different name. |
+| `NOTICE_UNABLE_TO_REACH_MESSAGE_CHECK_YOUR_CONNECTION_AND_TRY_AGAIN` | Unable to reach Message. Check your connection and try again. |
+| `NOTICE_UNEXPECTED_SERVER_RESPONSE_YOUR_DRAFT_IS_PRESERVED` | Unexpected server response. Your draft is preserved. |
+| `NOTICE_UNKNOWN_USER_TAB` | Unknown user tab. |
+| `NOTICE_UNLOCK_ADMIN_ACCESS_WITH_YOUR_PASSWORD_AND_AUTHENTICATOR` | Unlock admin access with your password and authenticator. |
+| `NOTICE_UPLOAD_REJECTED_ATTACH_ONE_SUPPORTED_FILE_UP_TO_VALUE_MB` | Upload rejected. Attach one supported file up to {value0} MB. |
+| `NOTICE_UPLOAD_TIMED_OUT_PLEASE_TRY_AGAIN` | Upload timed out. Please try again. |
+| `NOTICE_USERNAMES_USE_3_24_LETTERS_NUMBERS_OR_UNDERSCORES` | Usernames use 3–24 letters, numbers, or underscores. |
+| `NOTICE_USERNAME_MUST_BE_3_24_LETTERS_NUMBERS_OR_UNDERSCORES` | Username must be 3–24 letters, numbers, or underscores. |
+| `NOTICE_USERNAME_UPDATED` | Username updated. |
+| `NOTICE_USER_BLOCKED` | User blocked. |
+| `NOTICE_USER_NOT_FOUND` | User not found. |
+| `NOTICE_USE_AT_LEAST_8_CHARACTERS_AND_AT_MOST_72_BYTES_FOR_YOUR_PASSWORD` | Use at least 8 characters and at most 72 bytes for your password. |
+| `NOTICE_USE_AT_LEAST_8_CHARACTERS_MAXIMUM_72_UTF_8_BYTES_CHANGING_YOUR_PASSWORD_SI` | Use at least 8 characters (maximum 72 UTF-8 bytes). Changing your password signs you out on all devices. Sign in again with the new password. |
+| `NOTICE_VALUE_SELECTED_YOU_ARE_INCLUDED_AUTOMATICALLY` | {value0} selected · You are included automatically. |
+| `NOTICE_VIDEO_CALL` | Video call |
+| `NOTICE_VOICE_CALL` | Voice call |
+| `NOTICE_WAIT_UNTIL_YOUR_MESSAGE_REQUEST_IS_ACCEPTED` | Wait until your message request is accepted. |
+| `NOTICE_WHAT_S_ON_YOUR_MIND` | What's on your mind? |
+| `NOTICE_WRITE_A_MESSAGE` | Write a message… |
+| `NOTICE_WRITE_A_MESSAGE_OR_ATTACH_A_PHOTO_OR_VIDEO` | Write a message or attach a photo or video. |
+| `NOTICE_WRITE_BETWEEN_1_AND_VALUE_CHARACTERS` | Write between 1 and {value0} characters. |
+| `NOTICE_YOUR_COMMENT_IS_AWAITING_REVIEW` | Your comment is awaiting review. |
+| `NOTICE_YOUR_CONFESSION` | Your confession |
+| `NOTICE_YOUR_CONFESSION_IS_PUBLISHED` | Your confession is published. |
+| `NOTICE_YOUR_MEDIA_STORAGE_ALLOWANCE_IS_FULL` | Your media storage allowance is full. |
+| `NOTICE_YOUR_SESSION_EXPIRED_PLEASE_SIGN_IN_AGAIN` | Your session expired. Please sign in again. |
+| `NOTICE_YOU_BLOCKED_THIS_PERSON` | You blocked this person |
+| `NOTICE_YOU_CANNOT_BLOCK_YOURSELF` | You cannot block yourself. |
+| `NOTICE_YOU_CAN_SEND_ONE_INTRODUCTION_CALLS_AND_FURTHER_MESSAGES_UNLOCK_AFTER_ACCE` | You can send one introduction. Calls and further messages unlock after acceptance. |
+| `NOTICE_YOU_HAVE_A_NEW_MESSAGE_IN_MESSAGE` | You have a new message in Message. |
+| `NOTICE_YOU_HAVE_NEW_ACTIVITY_IN_MESSAGE` | You have new activity in Message. |
+| `NOTICE_YOU_WILL_LOSE_ACCESS_TO_THIS_GROUP_S_MESSAGES_A_GROUP_OWNER_WILL_NEED_TO_A` | You will lose access to this group's messages. A group owner will need to add you again. |
+
+## Maintaining the catalog
+
+Keep keys stable in `shared/notices.json`. Call `noticeText(defaultText, {value0: value})` at the display boundary for new notices, and register the exact default template in the catalog. Do not translate machine-readable states or user content. Both server and frontend use the same resolver; `/api/config` returns only configured notice overrides and the legacy chat notice.

@@ -1,3 +1,4 @@
+import { noticeText } from "./notices.js";
 import multer from "multer";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
@@ -13,7 +14,10 @@ import { needsReview } from "./moderation.js";
 export function content(value, max = 4000) {
   const text = typeof value === "string" ? value.trim() : "";
   if (!text || text.length > max)
-    throw new HttpError(400, `Enter 1–${max} characters.`);
+    throw new HttpError(
+      400,
+      noticeText("Enter 1–{value0} characters.", { value0: max }),
+    );
   return text;
 }
 export async function confession(pid, uid, q = query) {
@@ -21,7 +25,7 @@ export async function confession(pid, uid, q = query) {
     `SELECT p.* FROM confession_posts p WHERE p.id=? AND (p.status='published' OR p.author_id=?) AND ${visibleTo(uid, "p.author_id")}`,
     [pid, uid],
   );
-  if (!p) throw new HttpError(404, "Confession not found.");
+  if (!p) throw new HttpError(404, noticeText("Confession not found."));
   return p;
 }
 export async function storageUsed(q, uid) {
@@ -81,7 +85,7 @@ export function mountConfessions(app, limiter) {
       if (text.length > 4000 || (!text && !req.file))
         throw new HttpError(
           400,
-          "Add text or a photo/video (up to 4,000 characters).",
+          noticeText("Add text or a photo/video (up to 4,000 characters)."),
         );
       const type = req.file ? await fileTypeFromFile(req.file.path) : null;
       if (
@@ -95,7 +99,10 @@ export function mountConfessions(app, limiter) {
           "video/webm",
         ].includes(type?.mime)
       )
-        throw new HttpError(400, "Choose JPG, PNG, WebP, GIF, MP4 or WebM.");
+        throw new HttpError(
+          400,
+          noticeText("Choose JPG, PNG, WebP, GIF, MP4 or WebM."),
+        );
       if (
         req.file &&
         type.mime.startsWith("image/") &&
@@ -109,11 +116,16 @@ export function mountConfessions(app, limiter) {
         } catch {
           throw new HttpError(
             400,
-            "This image could not be processed. Choose a smaller, valid image.",
+            noticeText(
+              "This image could not be processed. Choose a smaller, valid image.",
+            ),
           );
         }
         if (clean.length > config.maxBytes)
-          throw new HttpError(413, "Image is too large after processing.");
+          throw new HttpError(
+            413,
+            noticeText("Image is too large after processing."),
+          );
         await writeFile(req.file.path, clean);
         req.file.size = clean.length;
       }
@@ -124,7 +136,10 @@ export function mountConfessions(app, limiter) {
           req.file &&
           (await storageUsed(q, uid)) + req.file.size > config.storageBytes
         )
-          throw new HttpError(413, "Your media storage allowance is full.");
+          throw new HttpError(
+            413,
+            noticeText("Your media storage allowance is full."),
+          );
         const r = await q(
           "INSERT INTO confession_posts(author_id,text,status,media_path,media_mime,media_size) VALUES(?,?,?,?,?,?)",
           [
@@ -148,7 +163,7 @@ export function mountConfessions(app, limiter) {
   });
   app.get("/api/confessions/:id/media", async (req, res, next) => {
     const p = await confession(id(req.params.id), req.auth.user.id);
-    if (!p.media_path) throw new HttpError(404, "Media not found.");
+    if (!p.media_path) throw new HttpError(404, noticeText("Media not found."));
     res
       .type(p.media_mime)
       .sendFile(
@@ -165,7 +180,7 @@ export function mountConfessions(app, limiter) {
         "SELECT * FROM confession_posts WHERE id=? AND author_id=? FOR UPDATE",
         [id(req.params.id), req.auth.user.id],
       );
-      if (!p) throw new HttpError(404, "Confession not found.");
+      if (!p) throw new HttpError(404, noticeText("Confession not found."));
       if (p.media_path)
         await q("INSERT IGNORE INTO media_deletions(path) VALUES(?)", [
           p.media_path,
@@ -182,7 +197,10 @@ export function mountConfessions(app, limiter) {
         await lockUsers(q, [uid, p.author_id]);
         const fresh = await confession(p.id, uid, q);
         if (fresh.status !== "published")
-          throw new HttpError(403, "This confession is awaiting review.");
+          throw new HttpError(
+            403,
+            noticeText("This confession is awaiting review."),
+          );
         await q(
           method === "put"
             ? "INSERT IGNORE INTO confession_likes(post_id,user_id) VALUES(?,?)"
@@ -220,14 +238,17 @@ export function mountConfessions(app, limiter) {
       req.body.anonymous !== undefined &&
       typeof req.body.anonymous !== "boolean"
     )
-      throw new HttpError(400, "Choose an anonymity option.");
+      throw new HttpError(400, noticeText("Choose an anonymity option."));
     const uid = req.auth.user.id,
       p = await confession(id(req.params.id), uid);
     await transaction(async (q) => {
       await lockUsers(q, [uid, p.author_id]);
       const fresh = await confession(p.id, uid, q);
       if (fresh.status !== "published")
-        throw new HttpError(403, "This confession is awaiting review.");
+        throw new HttpError(
+          403,
+          noticeText("This confession is awaiting review."),
+        );
       await q(
         "INSERT INTO confession_comments(post_id,author_id,text,anonymous,status) VALUES(?,?,?,?,?)",
         [

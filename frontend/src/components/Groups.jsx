@@ -1,3 +1,4 @@
+import { noticeText } from "../notices";
 import { useConfirm } from "./ConfirmDialog";
 import { useEffect, useRef, useState } from "react";
 import { api, post } from "../api";
@@ -63,9 +64,10 @@ export default function Groups({
     if (
       method === "DELETE" &&
       !(await confirm({
-        title: "Remove group member?",
-        description:
+        title: noticeText("Remove group member?"),
+        description: noticeText(
           "They will lose access to this group's messages and shared media.",
+        ),
         confirmLabel: "Remove member",
       }))
     )
@@ -73,9 +75,10 @@ export default function Groups({
     if (
       body?.ownerId &&
       !(await confirm({
-        title: "Transfer group ownership?",
-        description:
+        title: noticeText("Transfer group ownership?"),
+        description: noticeText(
           "This member will manage the group. You will become a regular member.",
+        ),
         confirmLabel: "Transfer ownership",
       }))
     )
@@ -115,7 +118,7 @@ export default function Groups({
       </header>
       {error && (
         <p role="alert" className="error">
-          {error}
+          {noticeText(error)}
         </p>
       )}
       <label>
@@ -182,9 +185,10 @@ export default function Groups({
                 action(async () => {
                   if (
                     !(await confirm({
-                      title: "Leave this group?",
-                      description:
+                      title: noticeText("Leave this group?"),
+                      description: noticeText(
                         "You will lose access to this group's messages. A group owner will need to add you again.",
+                      ),
                       confirmLabel: "Leave group",
                     }))
                   )
@@ -202,15 +206,17 @@ export default function Groups({
           )}
           {owner && (
             <p className="group-help">
-              Transfer ownership before leaving. New members can read previous
-              messages.
+              {noticeText(
+                "Transfer ownership before leaving. New members can read previous messages.",
+              )}
             </p>
           )}
         </>
       ) : (
         <p className="group-help">
-          Choose at least one other person. Up to 50 members, including you.
-          Added members can read this group’s history.
+          {noticeText(
+            "Choose at least one other person. Up to 50 members, including you. Added members can read this group’s history.",
+          )}
         </p>
       )}
       {(!conversation || owner) && (
@@ -242,17 +248,24 @@ export default function Groups({
           {candidates.length === 0 && (
             <p className="group-help">
               {search
-                ? "No users match that search."
-                : "No other users are available. Ask another person to register first."}
+                ? noticeText("No users match that search.")
+                : noticeText(
+                    "No other users are available. Ask another person to register first.",
+                  )}
             </p>
           )}
           {!conversation && (
             <p className="group-help">
               {!name.trim()
-                ? "Enter a group name."
+                ? noticeText("Enter a group name.")
                 : chosen.length === 0
-                  ? "Select at least one person below to create your group."
-                  : `${chosen.length} selected · You are included automatically.`}
+                  ? noticeText(
+                      "Select at least one person below to create your group.",
+                    )
+                  : noticeText(
+                      "{value0} selected · You are included automatically.",
+                      { value0: chosen.length },
+                    )}
             </p>
           )}
           <div className="group-candidates">

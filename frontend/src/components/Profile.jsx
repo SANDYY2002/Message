@@ -1,3 +1,4 @@
+import { noticeText } from "../notices";
 import { useEffect, useRef, useState } from "react";
 import { X, Camera, ShieldCheck, AtSign } from "lucide-react";
 import { api, post } from "../api";
@@ -128,11 +129,12 @@ export default function Profile({
       >
         <h3>Blocked users</h3>
         <p className="group-help">
-          Blocked conversations stay in Chats. Unblocking does not restore
-          follows.
+          {noticeText(
+            "Blocked conversations stay in Chats. Unblocking does not restore follows.",
+          )}
         </p>
-        {error && <p role="alert">{error}</p>}
-        {!blocks.length && <p>No blocked users.</p>}
+        {error && <p role="alert">{noticeText(error)}</p>}
+        {!blocks.length && <p>{noticeText("No blocked users.")}</p>}
         {blocks.map((u) => (
           <div className="community-actions" key={u.id}>
             <span>
@@ -160,13 +162,15 @@ export default function Profile({
       >
         <h3>Stay connected, your way</h3>
         <p className="group-help">
-          Choose browser alerts and a message chime. Your preferences are saved
-          for this account on this browser.
+          {noticeText(
+            "Choose browser alerts and a message chime. Your preferences are saved for this account on this browser.",
+          )}
         </p>
         <div ref={notificationHost} />
         <p className="group-help">
-          Keep Message open to receive alerts. The conversation you’re actively
-          reading stays quiet.
+          {noticeText(
+            "Keep Message open to receive alerts. The conversation you’re actively reading stays quiet.",
+          )}
         </p>
       </section>
       <section
@@ -188,16 +192,19 @@ export default function Profile({
           </span>
           <div>
             <h3>{user.displayName}</h3>
-            <p>@{user.username}</p>
+            <p>
+              {"@"}
+              {user.username}
+            </p>
             <small>Your space. Your style.</small>
           </div>
         </div>
         {error && (
           <p role="alert" className="error">
-            {error}
+            {noticeText(error)}
           </p>
         )}
-        {notice && <p role="status">{notice}</p>}
+        {notice && <p role="status">{noticeText(notice)}</p>}
         <fieldset disabled={busy}>
           <legend>
             <Camera size={17} /> Your avatar
@@ -242,7 +249,7 @@ export default function Profile({
                 const f = e.target.files[0];
                 setError("");
                 if (f && f.size > 2 * 1024 * 1024) {
-                  setError("Choose an image up to 2 MB.");
+                  setError(noticeText("Choose an image up to 2 MB."));
                   setFile(null);
                   e.target.value = "";
                 } else setFile(f || null);
@@ -250,8 +257,9 @@ export default function Profile({
             />
           </label>
           <p className="group-help">
-            JPG, PNG or WebP, up to 2 MB and 16 megapixels. Images are cropped
-            from the center to a 1:1 square.
+            {noticeText(
+              "JPG, PNG or WebP, up to 2 MB and 16 megapixels. Images are cropped from the center to a 1:1 square.",
+            )}
           </p>
           {(preview || user.avatarUrl) && (
             <img
@@ -303,7 +311,8 @@ export default function Profile({
               />
             </label>
             <p className="group-help">
-              {bio.length}/300 · Visible on your profile
+              {bio.length}
+              {noticeText("/300 · Visible on your profile")}
             </p>
             <button type="submit">Save bio</button>
           </fieldset>
@@ -337,8 +346,9 @@ export default function Profile({
               />
             </label>
             <p className="group-help">
-              3–24 letters, numbers or underscores. Usernames are lowercase and
-              must be unique. Your chats stay with your account.
+              {noticeText(
+                "3–24 letters, numbers or underscores. Usernames are lowercase and must be unique. Your chats stay with your account.",
+              )}
             </p>
             <button type="submit">Save username</button>
           </fieldset>
@@ -349,7 +359,7 @@ export default function Profile({
             const values = Object.fromEntries(new FormData(e.currentTarget));
             action(async () => {
               if (values.newPassword !== values.confirmPassword)
-                throw new Error("New passwords do not match.");
+                throw new Error(noticeText("New passwords do not match."));
               await post("/profile/password", {
                 currentPassword: values.currentPassword,
                 newPassword: values.newPassword,
@@ -392,9 +402,9 @@ export default function Profile({
               />
             </label>
             <p className="group-help">
-              Use at least 8 characters (maximum 72 UTF-8 bytes). Changing your
-              password signs you out on all devices. Sign in again with the new
-              password.
+              {noticeText(
+                "Use at least 8 characters (maximum 72 UTF-8 bytes). Changing your password signs you out on all devices. Sign in again with the new password.",
+              )}
             </p>
             <button type="submit">Change password and sign out</button>
           </fieldset>

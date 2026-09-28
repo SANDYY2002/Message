@@ -1,3 +1,4 @@
+import { noticeText } from "./notices.js";
 import { publicUser } from "./users.js";
 import { createHash, randomBytes } from "node:crypto";
 import { parse, serialize } from "cookie";
@@ -19,13 +20,16 @@ export function sessionHash(headers) {
 }
 export async function authenticate(headers) {
   const hash = sessionHash(headers);
-  if (!hash) throw new HttpError(401, "Please sign in.");
+  if (!hash) throw new HttpError(401, noticeText("Please sign in."));
   const [row] = await query(
     "SELECT u.id,u.username,u.display_name,u.bio,u.avatar_preset,u.avatar_path,u.avatar_revision,s.expires_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE token_hash=? AND expires_at>UTC_TIMESTAMP(3)",
     [hash],
   );
   if (!row)
-    throw new HttpError(401, "Your session expired. Please sign in again.");
+    throw new HttpError(
+      401,
+      noticeText("Your session expired. Please sign in again."),
+    );
   return {
     user: publicUser(row),
     hash,

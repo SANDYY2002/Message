@@ -1,3 +1,4 @@
+import { noticeText, configureNotices } from "./notices";
 import Confessions from "./components/Confessions";
 import Admin from "./components/Admin";
 import { VenetianMask, Shield } from "lucide-react";
@@ -130,6 +131,7 @@ export default function App() {
     setStartupError("");
     try {
       const settings = await api("/config");
+      configureNotices(settings.notices);
       setPrivacyNotice(settings.chatPrivacyNotice);
       const d = await api("/auth/me");
       setUser(d.user);
@@ -137,7 +139,9 @@ export default function App() {
     } catch (e) {
       if (e.status !== 401)
         setStartupError(
-          "Unable to reach Message. Check your connection and try again.",
+          noticeText(
+            "Unable to reach Message. Check your connection and try again.",
+          ),
         );
     } finally {
       setLoading(false);
@@ -162,14 +166,14 @@ export default function App() {
       <div className="loading-screen">
         <Brand />
         <LoaderCircle className="spin" />
-        <p>Getting things ready…</p>
+        <p>{noticeText("Getting things ready…")}</p>
       </div>
     );
   if (startupError)
     return (
       <div className="loading-screen">
         <Brand />
-        <p role="alert">{startupError}</p>
+        <p role="alert">{noticeText(startupError)}</p>
         <button className="primary" onClick={bootstrap}>
           Try again
         </button>
@@ -227,8 +231,9 @@ function Auth({ onLogin, theme, setTheme, privacyNotice }) {
             closer<span>.</span>
           </h1>
           <p>
-            A quick hello. A photo from your day.
-            <br />A conversation that feels like being there.
+            {noticeText("A quick hello. A photo from your day.")}
+            <br />
+            {noticeText("A conversation that feels like being there.")}
           </p>
           <div className="story-art" aria-hidden="true">
             <div className="orbit orbit-one" />
@@ -259,8 +264,10 @@ function Auth({ onLogin, theme, setTheme, privacyNotice }) {
           <h2>{register ? "Make yourself at home." : "Good to see you."}</h2>
           <p>
             {register
-              ? "Create an account and start your first conversation."
-              : "Sign in to pick up where you left off."}
+              ? noticeText(
+                  "Create an account and start your first conversation.",
+                )
+              : noticeText("Sign in to pick up where you left off.")}
           </p>
           <div className="auth-tabs">
             <button
@@ -327,12 +334,14 @@ function Auth({ onLogin, theme, setTheme, privacyNotice }) {
             </label>
             {register && (
               <p className="field-hint">
-                Usernames use 3–24 letters, numbers, or underscores.
+                {noticeText(
+                  "Usernames use 3–24 letters, numbers, or underscores.",
+                )}
               </p>
             )}
             {error && (
               <div role="alert" className="error">
-                {error}
+                {noticeText(error)}
               </div>
             )}
             <button className="primary auth-submit" disabled={busy}>
@@ -695,7 +704,11 @@ function Chat({
   function attach(f) {
     if (!f) return;
     if (f.size > maxUpload) {
-      setError(`Choose a file smaller than ${maxUpload / 1024 / 1024} MB.`);
+      setError(
+        noticeText("Choose a file smaller than {value0} MB.", {
+          value0: maxUpload / 1024 / 1024,
+        }),
+      );
       return;
     }
     if (
@@ -708,7 +721,7 @@ function Chat({
         "video/webm",
       ].includes(f.type)
     ) {
-      setError("Choose a JPG, PNG, WebP, GIF, MP4, or WebM file.");
+      setError(noticeText("Choose a JPG, PNG, WebP, GIF, MP4, or WebM file."));
       return;
     }
     setFile(f);
@@ -781,9 +794,10 @@ function Chat({
     if (
       action === "decline" &&
       !(await confirm({
-        title: "Decline this request?",
-        description:
+        title: noticeText("Decline this request?"),
+        description: noticeText(
           "This conversation will close and the sender cannot send another introduction in it.",
+        ),
         confirmLabel: "Decline request",
       }))
     )
@@ -802,9 +816,12 @@ function Chat({
       !selected ||
       selected.isGroup ||
       !(await confirm({
-        title: `Block @${selected.peer.username}?`,
-        description:
+        title: noticeText("Block @{value0}?", {
+          value0: selected.peer.username,
+        }),
+        description: noticeText(
           "This stops messages, calls and social interactions. You can unblock them from Settings or this chat.",
+        ),
         confirmLabel: "Block user",
       }))
     )
@@ -828,9 +845,10 @@ function Chat({
   async function deleteChat() {
     if (
       !(await confirm({
-        title: "Delete chat from your inbox?",
-        description:
+        title: noticeText("Delete chat from your inbox?"),
+        description: noticeText(
           "This hides the conversation for you. It does not delete the other person’s copy. A new message can bring it back if neither of you is blocked.",
+        ),
         confirmLabel: "Delete chat",
       }))
     )
@@ -1124,10 +1142,14 @@ function Chat({
               </strong>
               <p>
                 {search
-                  ? "Try a different name."
+                  ? noticeText("Try a different name.")
                   : inbox === "requests"
-                    ? "New introductions appear here for you to accept or decline."
-                    : "Find a friend by username and start talking."}
+                    ? noticeText(
+                        "New introductions appear here for you to accept or decline.",
+                      )
+                    : noticeText(
+                        "Find a friend by username and start talking.",
+                      )}
               </p>
               {!search && (
                 <button
@@ -1262,7 +1284,11 @@ function Chat({
                     <div className="conversation-intro">
                       <Avatar user={selected.peer} large />
                       <h2>This is the start of something.</h2>
-                      <p>Say hello to {selected.peer.displayName}.</p>
+                      <p>
+                        {noticeText("Say hello to ")}
+                        {selected.peer.displayName}
+                        {"."}
+                      </p>
                     </div>
                   )}
                   {messages.map((m, i) => (
@@ -1322,13 +1348,17 @@ function Chat({
               <div className="request-banner" role="status">
                 <strong>
                   {selected.incomingRequest
-                    ? "Message request"
-                    : "Awaiting acceptance"}
+                    ? noticeText("Message request")
+                    : noticeText("Awaiting acceptance")}
                 </strong>
                 <p>
                   {selected.incomingRequest
-                    ? "Accept to chat or reply below to accept automatically. You can also decline or block this person."
-                    : "You can send one introduction. Calls and further messages unlock after acceptance."}
+                    ? noticeText(
+                        "Accept to chat or reply below to accept automatically. You can also decline or block this person.",
+                      )
+                    : noticeText(
+                        "You can send one introduction. Calls and further messages unlock after acceptance.",
+                      )}
                 </p>
                 {selected.incomingRequest && (
                   <div>
@@ -1347,14 +1377,15 @@ function Chat({
               <div className="request-banner blocked-banner" role="status">
                 <strong>
                   {selected.blockedByMe
-                    ? "You blocked this person"
-                    : "Messaging is blocked"}
+                    ? noticeText("You blocked this person")
+                    : noticeText("Messaging is blocked")}
                 </strong>
                 <p>
-                  Message history remains available. New messages and calls are
-                  disabled.
+                  {noticeText(
+                    "Message history remains available. New messages and calls are disabled.",
+                  )}
                 </p>
-                {error && <p role="alert">{error}</p>}
+                {error && <p role="alert">{noticeText(error)}</p>}
                 <div>
                   {selected.blockedByMe && (
                     <button onClick={unblockPeer}>Unblock person</button>
@@ -1378,7 +1409,7 @@ function Chat({
               >
                 {error && (
                   <div role="alert" className="error dismissable">
-                    {error}
+                    {noticeText(error)}
                     <button
                       aria-label="Dismiss error"
                       onClick={() => setError("")}
@@ -1461,8 +1492,12 @@ function Chat({
                 <div className="composer-note">
                   <span>
                     {sending
-                      ? `Sending${file ? ` · ${progress}%` : ""}…`
-                      : `Photos & videos up to ${maxUpload / 1024 / 1024} MB`}
+                      ? noticeText("Sending{value0}…", {
+                          value0: file ? ` · ${progress}%` : "",
+                        })
+                      : noticeText("Photos & videos up to {value0} MB", {
+                          value0: maxUpload / 1024 / 1024,
+                        })}
                   </span>
                   <span>Enter to send · Shift + Enter for a new line</span>
                 </div>
@@ -1482,9 +1517,9 @@ function Chat({
               start with a hello<span>.</span>
             </h1>
             <p>
-              Find your people. Share a moment.
+              {noticeText("Find your people. Share a moment.")}
               <br />
-              Make their day a little brighter.
+              {noticeText("Make their day a little brighter.")}
             </p>
             <button className="primary" onClick={() => setNewChat(true)}>
               <Plus size={18} />
@@ -1502,7 +1537,7 @@ function Chat({
             </div>
             {error && (
               <div role="alert" className="error">
-                {error}
+                {noticeText(error)}
               </div>
             )}
           </div>
@@ -1703,7 +1738,7 @@ function UserPicker({ close, onSelect }) {
         </div>
         {error && (
           <div role="alert" className="error">
-            {error}
+            {noticeText(error)}
           </div>
         )}
         <div className="picker-results">
@@ -1732,8 +1767,9 @@ function UserPicker({ close, onSelect }) {
               <Search size={26} />
               <strong>No people found yet</strong>
               <p>
-                Ask your friend to create an account, then search for their
-                username.
+                {noticeText(
+                  "Ask your friend to create an account, then search for their username.",
+                )}
               </p>
             </div>
           )}

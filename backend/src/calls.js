@@ -1,3 +1,4 @@
+import { noticeText } from "./notices.js";
 import { randomUUID, createHmac } from "node:crypto";
 import { query } from "./db.js";
 import { member, otherUser } from "./chat.js";
@@ -97,7 +98,7 @@ export function createCalls(
               error:
                 e.status || !e.code
                   ? e.message
-                  : "Call service is unavailable. Try again.",
+                  : noticeText("Call service is unavailable. Try again."),
             });
           },
         );

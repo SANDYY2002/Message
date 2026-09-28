@@ -1,10 +1,14 @@
+import { noticeText } from "./notices.js";
 import { query, transaction } from "./db.js";
 import { id, HttpError } from "./validation.js";
 import { publicUser } from "./users.js";
 import { allowInteraction, lockUsers, visibleTo } from "./relationships.js";
 function content(value, max) {
   if (typeof value !== "string" || !value.trim() || value.trim().length > max)
-    throw new HttpError(400, `Write between 1 and ${max} characters.`);
+    throw new HttpError(
+      400,
+      noticeText("Write between 1 and {value0} characters.", { value0: max }),
+    );
   return value.trim();
 }
 async function notify(q, recipient, actor, kind, postId, key) {
@@ -28,13 +32,13 @@ export function mountSocial(app, io, limiter) {
   const changed = () => io.emit("social:changed");
   async function postRow(pid, uid, q = query) {
     const [p] = await q("SELECT * FROM posts WHERE id=?", [pid]);
-    if (!p) throw new HttpError(404, "Post not found.");
+    if (!p) throw new HttpError(404, noticeText("Post not found."));
     await allowInteraction(uid, p.author_id, q);
     if (p.repost_of) {
       const [original] = await q("SELECT author_id FROM posts WHERE id=?", [
         p.repost_of,
       ]);
-      if (!original) throw new HttpError(404, "Post not found.");
+      if (!original) throw new HttpError(404, noticeText("Post not found."));
       await allowInteraction(uid, original.author_id, q);
     }
     return p;
@@ -124,7 +128,8 @@ export function mountSocial(app, io, limiter) {
       id(req.params.id),
       req.auth.user.id,
     ]);
-    if (!r.affectedRows) throw new HttpError(404, "Post not found.");
+    if (!r.affectedRows)
+      throw new HttpError(404, noticeText("Post not found."));
     changed();
     res.sendStatus(204);
   });
@@ -133,7 +138,7 @@ export function mountSocial(app, io, limiter) {
       pid = id(req.params.id),
       p = await postRow(pid, uid);
     if (p.repost_of)
-      throw new HttpError(400, "Interact with the original post.");
+      throw new HttpError(400, noticeText("Interact with the original post."));
     const activityId = await transaction(async (q) => {
       await lockUsers(q, [uid, p.author_id]);
       const current = await postRow(pid, uid, q);
@@ -234,7 +239,8 @@ export function mountSocial(app, io, limiter) {
       "DELETE FROM post_comments WHERE id=? AND author_id=?",
       [id(req.params.id), req.auth.user.id],
     );
-    if (!r.affectedRows) throw new HttpError(404, "Comment not found.");
+    if (!r.affectedRows)
+      throw new HttpError(404, noticeText("Comment not found."));
     changed();
     res.sendStatus(204);
   });
@@ -262,7 +268,7 @@ export function mountSocial(app, io, limiter) {
       peer = id(req.params.id);
     await allowInteraction(uid, peer);
     const [u] = await query("SELECT * FROM users WHERE id=?", [peer]);
-    if (!u) throw new HttpError(404, "Profile not found.");
+    if (!u) throw new HttpError(404, noticeText("Profile not found."));
     const [stats] = await query(
       `SELECT
       (SELECT COUNT(*) FROM posts p WHERE p.author_id=? AND (p.repost_of IS NULL OR EXISTS(SELECT 1 FROM posts o WHERE o.id=p.repost_of AND ${visibleTo(uid, "o.author_id")}))) AS postCount,
@@ -280,20 +286,18 @@ export function mountSocial(app, io, limiter) {
       before = req.query.before ? id(req.query.before) : 4294967295;
     await allowInteraction(uid, peer);
     if (!["followers", "following"].includes(req.query.kind))
-      throw new HttpError(400, "Choose followers or following.");
+      throw new HttpError(400, noticeText("Choose followers or following."));
     const incoming = req.query.kind === "followers";
     const rows = await query(
       `SELECT u.*,EXISTS(SELECT 1 FROM follows x WHERE x.follower_id=? AND x.followed_id=u.id) AS following,EXISTS(SELECT 1 FROM follows x WHERE x.follower_id=u.id AND x.followed_id=?) AS followsYou FROM follows f JOIN users u ON u.id=f.${incoming ? "follower_id" : "followed_id"} WHERE f.${incoming ? "followed_id" : "follower_id"}=? AND u.id<? AND ${visibleTo(uid, "u.id")} ORDER BY u.id DESC LIMIT 31`,
       [uid, uid, peer, before],
     );
     res.json({
-      users: rows
-        .slice(0, 30)
-        .map((u) => ({
-          ...publicUser(u),
-          following: !!u.following,
-          followsYou: !!u.followsYou,
-        })),
+      users: rows.slice(0, 30).map((u) => ({
+        ...publicUser(u),
+        following: !!u.following,
+        followsYou: !!u.followsYou,
+      })),
       nextBefore: rows.length > 30 ? rows[29].id : null,
     });
   });
@@ -301,7 +305,8 @@ export function mountSocial(app, io, limiter) {
     app[method]("/api/people/:id/follow", limit, async (req, res) => {
       const uid = req.auth.user.id,
         peer = id(req.params.id);
-      if (uid === peer) throw new HttpError(400, "Choose another user.");
+      if (uid === peer)
+        throw new HttpError(400, noticeText("Choose another user."));
       const activityId = await transaction(async (q) => {
         await lockUsers(q, [uid, peer]);
         await allowInteraction(uid, peer, q);
@@ -353,7 +358,7 @@ export function mountSocial(app, io, limiter) {
         !req.body.ids.length ||
         req.body.ids.length > 30
       )
-        throw new HttpError(400, "Choose up to 30 notifications.");
+        throw new HttpError(400, noticeText("Choose up to 30 notifications."));
       const ids = [...new Set(req.body.ids.map(id))];
       await query(
         `UPDATE activities SET is_read=TRUE WHERE recipient_id=? AND id IN (${ids.map(() => "?").join(",")})`,

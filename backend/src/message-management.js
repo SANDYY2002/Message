@@ -1,3 +1,4 @@
+import { noticeText } from "./notices.js";
 import { visibleTo } from "./relationships.js";
 import { transaction, query } from "./db.js";
 import { member, emitConversation } from "./chat.js";
@@ -13,7 +14,7 @@ export function mountMessageManagement(app, io, limiter) {
       !req.query.q.trim() ||
       req.query.q.trim().length > 120
     )
-      throw new HttpError(400, "Search must be 1–120 characters.");
+      throw new HttpError(400, noticeText("Search must be 1–120 characters."));
     const term = req.query.q.trim().toLowerCase();
     const before = req.query.before ? id(req.query.before) : 4294967295;
     const rows = await query(
@@ -38,7 +39,7 @@ export function mountMessageManagement(app, io, limiter) {
       "SELECT * FROM messages WHERE id=? AND conversation_id=? AND sender_id=? FOR UPDATE",
       [mid, cid, uid],
     );
-    if (!message) throw new HttpError(404, "Message not found.");
+    if (!message) throw new HttpError(404, noticeText("Message not found."));
     return { conversation, message };
   }
   app.patch(
@@ -49,14 +50,22 @@ export function mountMessageManagement(app, io, limiter) {
       const result = await transaction(async (q) => {
         const { conversation, message } = await owned(req, q);
         if (message.deleted_at)
-          throw new HttpError(409, "This message has been deleted.");
+          throw new HttpError(
+            409,
+            noticeText("This message has been deleted."),
+          );
         if (input.revision !== message.revision)
           throw new HttpError(
             409,
-            "This message changed in another window. Close the editor and try again.",
+            noticeText(
+              "This message changed in another window. Close the editor and try again.",
+            ),
           );
         if (!input.text && !message.media_path)
-          throw new HttpError(400, "A text message cannot be empty.");
+          throw new HttpError(
+            400,
+            noticeText("A text message cannot be empty."),
+          );
         if (input.text !== message.text) {
           await q(
             "UPDATE messages SET text=?,edited_at=UTC_TIMESTAMP(3),revision=revision+1 WHERE id=?",

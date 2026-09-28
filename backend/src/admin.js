@@ -1,3 +1,4 @@
+import { noticeText } from "./notices.js";
 import bcrypt from "bcryptjs";
 import path from "node:path";
 import { query, transaction } from "./db.js";
@@ -38,7 +39,7 @@ export function mountAdmin(app, limiter) {
       )
         throw new HttpError(
           403,
-          "Password or authenticator code is incorrect.",
+          noticeText("Password or authenticator code is incorrect."),
         );
       const uid = req.auth.user.id;
       await transaction(async (q) => {
@@ -53,13 +54,15 @@ export function mountAdmin(app, limiter) {
         if (!s || !(await bcrypt.compare(password, u.password_hash)))
           throw new HttpError(
             403,
-            "Password or authenticator code is incorrect.",
+            noticeText("Password or authenticator code is incorrect."),
           );
         const step = verifyCode(decrypt(s.secret), code, Number(s.last_step));
         if (step === null)
           throw new HttpError(
             403,
-            "Password or authenticator code is incorrect, or the code was already used.",
+            noticeText(
+              "Password or authenticator code is incorrect, or the code was already used.",
+            ),
           );
         await q("UPDATE superadmins SET last_step=? WHERE user_id=?", [
           step,
@@ -88,7 +91,7 @@ export function mountAdmin(app, limiter) {
     if (!rows.length)
       throw new HttpError(
         403,
-        "Unlock admin access with your password and authenticator.",
+        noticeText("Unlock admin access with your password and authenticator."),
       );
     next();
   });
@@ -96,7 +99,8 @@ export function mountAdmin(app, limiter) {
     const uid = id(req.params.id);
     await audit(query, req.auth.user.id, "avatar_view", uid);
     const [u] = await query("SELECT avatar_path FROM users WHERE id=?", [uid]);
-    if (!u?.avatar_path) throw new HttpError(404, "Avatar not found.");
+    if (!u?.avatar_path)
+      throw new HttpError(404, noticeText("Avatar not found."));
     res
       .type("image/webp")
       .sendFile(
@@ -122,7 +126,7 @@ export function mountAdmin(app, limiter) {
       tab = req.params.tab;
     const offset = Number(req.query.offset || 0);
     if (!Number.isSafeInteger(offset) || offset < 0 || offset > 10000000)
-      throw new HttpError(400, "Invalid page.");
+      throw new HttpError(400, noticeText("Invalid page."));
     const statements = {
       profile:
         "SELECT id,username,display_name,bio,avatar_preset,avatar_path,avatar_revision FROM users WHERE id=?",
@@ -151,7 +155,8 @@ export function mountAdmin(app, limiter) {
       blocks:
         "SELECT u.id,u.username,u.display_name FROM user_blocks b JOIN users u ON u.id=b.blocked_id WHERE b.blocker_id=? ORDER BY u.id DESC LIMIT 100",
     };
-    if (!statements[tab]) throw new HttpError(404, "Unknown user tab.");
+    if (!statements[tab])
+      throw new HttpError(404, noticeText("Unknown user tab."));
     await audit(query, req.auth.user.id, `user_${tab}`, uid);
     const rows = await query(
       statements[tab].replace("LIMIT 100", `LIMIT 50 OFFSET ${offset}`),
@@ -202,7 +207,7 @@ export function mountAdmin(app, limiter) {
         : req.params.kind === "confessions"
           ? "confession_posts"
           : null;
-    if (!table) throw new HttpError(404, "Media not found.");
+    if (!table) throw new HttpError(404, noticeText("Media not found."));
     const mid = id(req.params.id);
     await audit(query, req.auth.user.id, `media_${req.params.kind}`, mid);
     const [m] = await query(
@@ -210,7 +215,7 @@ export function mountAdmin(app, limiter) {
       [mid],
     );
     if (!m?.media_path || m.deleted_at)
-      throw new HttpError(404, "Media not found.");
+      throw new HttpError(404, noticeText("Media not found."));
     res
       .type(m.media_mime)
       .sendFile(
@@ -243,7 +248,7 @@ export function mountAdmin(app, limiter) {
             : null,
       status = req.body.status;
     if (!table || !["published", "rejected"].includes(status))
-      throw new HttpError(400, "Choose approve or reject.");
+      throw new HttpError(400, noticeText("Choose approve or reject."));
     const target = id(req.params.id);
     await transaction(async (q) => {
       await audit(q, req.auth.user.id, `${req.params.kind}_${status}`, target);

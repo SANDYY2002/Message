@@ -24,7 +24,10 @@ test("anonymous confessions and authenticator-protected moderation", async ({
   ).toBeVisible();
   await page.getByRole("button", { name: "Confessions", exact: true }).click();
   await expect(
-    page.getByText("Superadmins can identify", { exact: false }),
+    page.getByText(
+      "Community privacy: Superadmins can identify authors and anonymous commenters.",
+      { exact: true },
+    ),
   ).toBeVisible();
   await page.getByLabel("Your anonymous confession").fill(text);
   await page.getByRole("button", { name: "Publish anonymously" }).click();

@@ -1,3 +1,4 @@
+import { noticeText } from "./notices.js";
 import { allowInteraction, visibleTo } from "./relationships.js";
 import { query } from "./db.js";
 import { HttpError } from "./validation.js";
@@ -12,20 +13,21 @@ export async function member(
     `SELECT * FROM conversations WHERE id=?${lock ? " FOR UPDATE" : ""}`,
     [conversationId],
   );
-  if (!c) throw new HttpError(404, "Conversation not found.");
+  if (!c) throw new HttpError(404, noticeText("Conversation not found."));
   if (c.kind === "group") {
     const [membership] = await q(
       "SELECT read_id FROM group_members WHERE conversation_id=? AND user_id=?",
       [conversationId, userId],
     );
-    if (!membership) throw new HttpError(404, "Conversation not found.");
+    if (!membership)
+      throw new HttpError(404, noticeText("Conversation not found."));
     c.read_id = membership.read_id;
   } else if (c.user_low !== userId && c.user_high !== userId)
-    throw new HttpError(404, "Conversation not found.");
+    throw new HttpError(404, noticeText("Conversation not found."));
   if (c.kind !== "group" && !readOnly) {
     await allowInteraction(userId, otherUser(c, userId), q);
     if (c.request_status === "declined")
-      throw new HttpError(403, "This message request is closed.");
+      throw new HttpError(403, noticeText("This message request is closed."));
   }
   return c;
 }

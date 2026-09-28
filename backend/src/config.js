@@ -1,3 +1,4 @@
+import { readNoticeOverrides, noticeDefaults } from "../../shared/notices.mjs";
 import { readFileSync } from "node:fs";
 import dotenv from "dotenv";
 import path from "node:path";
@@ -34,11 +35,15 @@ if (
   throw new Error("Production requires a database password");
 if (Boolean(process.env.TURN_URLS) !== Boolean(process.env.TURN_SECRET))
   throw new Error("TURN_URLS and TURN_SECRET must be configured together");
+const notices = readNoticeOverrides(
+  process.env.APP_NOTICES_JSON,
+  process.env.CHAT_PRIVACY_NOTICE,
+);
 export const config = {
+  notices,
   production,
   chatPrivacyNotice:
-    process.env.CHAT_PRIVACY_NOTICE?.trim() ||
-    "Superadmins can access your private messages and shared media. Chats are not end-to-end encrypted.",
+    notices.CHAT_PRIVACY_NOTICE || noticeDefaults.CHAT_PRIVACY_NOTICE,
   origin,
   secure,
   port: integer("PORT", 4000, 1, 65535),

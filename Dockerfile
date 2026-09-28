@@ -4,6 +4,7 @@ COPY package.json package-lock.json ./
 COPY backend/package.json backend/package.json
 COPY frontend/package.json frontend/package.json
 RUN npm ci
+COPY shared shared
 COPY frontend frontend
 RUN npm run build
 
@@ -14,6 +15,7 @@ COPY package.json package-lock.json ./
 COPY backend/package.json backend/package.json
 COPY frontend/package.json frontend/package.json
 RUN npm ci --omit=dev && npm cache clean --force
+COPY shared shared
 COPY backend/src backend/src
 COPY database database
 COPY --from=build /app/frontend/dist frontend/dist

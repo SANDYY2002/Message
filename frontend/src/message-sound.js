@@ -1,10 +1,12 @@
+import { noticeText } from "./notices";
 // A short, locally synthesized chime; no audio downloads or tracking requests.
 export function createMessageSound() {
   let context;
   return {
     async unlock() {
       const Audio = window.AudioContext || window.webkitAudioContext;
-      if (!Audio) throw new Error("Sound is not supported in this browser.");
+      if (!Audio)
+        throw new Error(noticeText("Sound is not supported in this browser."));
       context ||= new Audio();
       if (context.state !== "running") await context.resume();
       return context.state === "running";

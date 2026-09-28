@@ -68,7 +68,7 @@ test("two users connect video and voice, mute, hang up, and see call history", a
       const ad = a.getByRole("dialog", { name: "Call", exact: true }),
         bd = b.getByRole("dialog", { name: "Call", exact: true });
       await expect(
-        bd.getByText("Incoming call", { exact: true }),
+        bd.getByText("Incoming call — custom notice", { exact: true }),
       ).toBeVisible();
       await bd
         .getByRole("button", { name: "Accept call", exact: true })

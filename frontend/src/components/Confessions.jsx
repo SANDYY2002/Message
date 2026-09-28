@@ -1,3 +1,4 @@
+import { noticeText } from "../notices";
 import { useEffect, useState } from "react";
 import { Heart, MessageCircle, VenetianMask, RefreshCw } from "lucide-react";
 import { api, post } from "../api";
@@ -43,7 +44,9 @@ export default function Confessions() {
           <h1>
             <VenetianMask /> Confessions
           </h1>
-          <p>Share what’s on your mind. Leave your name behind.</p>
+          <p>
+            {noticeText("Share what’s on your mind. Leave your name behind.")}
+          </p>
         </div>
         <button
           className="icon-button"
@@ -54,16 +57,16 @@ export default function Confessions() {
         </button>
       </header>
       <aside className="privacy-notice">
-        Your identity is hidden from other users. Superadmins can identify
-        confession authors and anonymous commenters. Photos, videos and details
-        you share may reveal your identity. Flagged text waits for review.
+        {noticeText(
+          "Your identity is hidden from other users. Superadmins can identify confession authors and anonymous commenters. Photos, videos and details you share may reveal your identity. Flagged text waits for review.",
+        )}
       </aside>
       {error && (
         <p className="error" role="alert">
-          {error}
+          {noticeText(error)}
         </p>
       )}
-      {notice && <p role="status">{notice}</p>}
+      {notice && <p role="status">{noticeText(notice)}</p>}
       <form
         className="community-card post-composer"
         onSubmit={(e) => {
@@ -76,8 +79,10 @@ export default function Confessions() {
             const d = await api("/confessions", { method: "POST", body });
             setNotice(
               d.post.status === "pending"
-                ? "Submitted for admin review. Only you can see it until approved."
-                : "Your confession is published.",
+                ? noticeText(
+                    "Submitted for admin review. Only you can see it until approved.",
+                  )
+                : noticeText("Your confession is published."),
             );
             setText("");
             setFile(null);
@@ -114,7 +119,7 @@ export default function Confessions() {
       {!posts.length && (
         <div className="community-card">
           <h2>A quiet corner, for now</h2>
-          <p>Be the first to share a confession.</p>
+          <p>{noticeText("Be the first to share a confession.")}</p>
         </div>
       )}
       {posts.map((p) => (
@@ -124,11 +129,15 @@ export default function Confessions() {
               <strong>Anonymous</strong>
               <small> · {new Date(p.createdAt).toLocaleString()}</small>
               {p.isOwner && (
-                <span className="status-pill">Your confession</span>
+                <span className="status-pill">
+                  {noticeText("Your confession")}
+                </span>
               )}
               {p.status !== "published" && (
                 <span className="status-pill">
-                  {p.status === "pending" ? "Awaiting review" : "Not approved"}
+                  {p.status === "pending"
+                    ? noticeText("Awaiting review")
+                    : noticeText("Not approved")}
                 </span>
               )}
             </div>
@@ -138,9 +147,10 @@ export default function Confessions() {
                 onClick={async () => {
                   if (
                     await confirm({
-                      title: "Delete confession?",
-                      description:
+                      title: noticeText("Delete confession?"),
+                      description: noticeText(
                         "This removes the confession, comments and attachment permanently.",
+                      ),
                       confirmLabel: "Delete confession",
                     })
                   )
@@ -243,7 +253,7 @@ function Comments({ pid, onChange }) {
       </button>
       {open && (
         <>
-          <p role="status">{notice}</p>
+          <p role="status">{noticeText(notice)}</p>
           {comments.map((c) => (
             <div className="confession-comment" key={c.id}>
               <strong>
@@ -256,8 +266,10 @@ function Comments({ pid, onChange }) {
                   onClick={async () => {
                     if (
                       await confirm({
-                        title: "Delete comment?",
-                        description: "This permanently removes your comment.",
+                        title: noticeText("Delete comment?"),
+                        description: noticeText(
+                          "This permanently removes your comment.",
+                        ),
                         confirmLabel: "Delete comment",
                       })
                     )
@@ -291,8 +303,8 @@ function Comments({ pid, onChange }) {
                 setText("");
                 setNotice(
                   d.status === "pending"
-                    ? "Your comment is awaiting review."
-                    : "Comment added.",
+                    ? noticeText("Your comment is awaiting review.")
+                    : noticeText("Comment added."),
                 );
               });
             }}
@@ -333,7 +345,7 @@ function Report({ pid }) {
           setBusy(true);
           try {
             await post(`/confessions/${pid}/report`, { reason });
-            setNotice("Report sent to the moderation team.");
+            setNotice(noticeText("Report sent to the moderation team."));
             setReason("");
           } catch (e) {
             setNotice(e.message);
@@ -352,7 +364,7 @@ function Report({ pid }) {
           />
         </label>
         <button disabled={busy}>Send report</button>
-        <p role="status">{notice}</p>
+        <p role="status">{noticeText(notice)}</p>
       </form>
     </details>
   );

@@ -1,3 +1,4 @@
+import { noticeText } from "../notices";
 import { useEffect, useState } from "react";
 import { api, post } from "../api";
 export default function Admin() {
@@ -79,7 +80,7 @@ export default function Admin() {
         <div>
           <span className="small-label">ACCOUNTABILITY BY DESIGN</span>
           <h1>Administration</h1>
-          <p>Sensitive access is recorded in the audit log.</p>
+          <p>{noticeText("Sensitive access is recorded in the audit log.")}</p>
         </div>
         {status?.unlocked && (
           <button
@@ -96,13 +97,17 @@ export default function Admin() {
       </header>
       {error && (
         <p className="error" role="alert">
-          {error}
+          {noticeText(error)}
         </p>
       )}
       {!status ? (
-        <p>Checking access…</p>
+        <p>{noticeText("Checking access…")}</p>
       ) : !status.eligible ? (
-        <p>Administrator access has not been configured for this account.</p>
+        <p>
+          {noticeText(
+            "Administrator access has not been configured for this account.",
+          )}
+        </p>
       ) : !status.unlocked ? (
         <form
           className="community-card"
@@ -121,8 +126,9 @@ export default function Admin() {
         >
           <h2>Verify it’s you</h2>
           <p>
-            Access expires after 15 minutes. Enter a fresh authenticator code
-            each time.
+            {noticeText(
+              "Access expires after 15 minutes. Enter a fresh authenticator code each time.",
+            )}
           </p>
           <label>
             Password
@@ -255,7 +261,7 @@ export default function Admin() {
                         Back to conversations
                       </button>
                       <p className="privacy-notice">
-                        Private message access is audited.
+                        {noticeText("Private message access is audited.")}
                       </p>
                       {messages.map((m) => (
                         <article className="confession-comment" key={m.id}>
@@ -264,7 +270,9 @@ export default function Admin() {
                             {" "}
                             · {new Date(m.createdAt).toLocaleString()}
                           </small>
-                          <p>{m.deleted ? "Message deleted" : m.text}</p>
+                          <p>
+                            {m.deleted ? noticeText("Message deleted") : m.text}
+                          </p>
                           {m.media &&
                             (m.media.mime.startsWith("video/") ? (
                               <video controls src={m.media.url} />
@@ -336,7 +344,9 @@ export default function Admin() {
           ) : page === "moderation" ? (
             <>
               {!queue.posts.length && !queue.comments.length && (
-                <p className="community-card">Nothing waiting for review.</p>
+                <p className="community-card">
+                  {noticeText("Nothing waiting for review.")}
+                </p>
               )}
               {["posts", "comments"].flatMap((kind) =>
                 queue[kind].map((p) => (
@@ -361,7 +371,10 @@ export default function Admin() {
                     {queue.reports
                       .filter((r) => kind === "posts" && r.post_id === p.id)
                       .map((r) => (
-                        <p key={r.id}>Report: {r.reason}</p>
+                        <p key={r.id}>
+                          {noticeText("Report: ")}
+                          {r.reason}
+                        </p>
                       ))}
                     <div className="community-actions">
                       {["published", "rejected"].map((s) => (
@@ -389,9 +402,11 @@ export default function Admin() {
             <div className="community-card">
               {rows.map((r) => (
                 <p key={r.id}>
-                  <strong>{r.action}</strong> · @{r.username || r.admin_id} ·{" "}
-                  {r.target_id || "—"} ·{" "}
-                  {new Date(r.created_at).toLocaleString()}
+                  <strong>{r.action}</strong>
+                  {" · @"}
+                  {r.username || r.admin_id}
+                  {" ·"} {r.target_id || "—"}
+                  {" ·"} {new Date(r.created_at).toLocaleString()}
                 </p>
               ))}
             </div>

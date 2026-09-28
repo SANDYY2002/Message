@@ -134,3 +134,7 @@ Settings → Blocked users manages blocks. Direct chats remain in Chats with a b
 Set `CHAT_PRIVACY_NOTICE="Your notice here"` in the root `.env` for Docker, or `backend/.env` for local npm development. This changes the notice on both the sign-in screen and inside chats. Keep the text accurate about administrator access and encryption. Empty or missing values use the existing default disclosure. The value is displayed as plain text, not HTML; no secrets should be put in it.
 
 After changing the Docker environment, run `docker compose -f compose.tunnel.yaml up -d --no-deps --force-recreate app` and refresh the browser. A frontend rebuild is unnecessary for later notice edits. For local development, restart the backend. Only the notice is exposed by `/api/config`; private server settings are never returned.
+
+### Configure all application notices
+
+All built-in notices now support `APP_NOTICES_JSON` overrides in `.env` (Docker) or `backend/.env` (local development). See [the complete notice catalog and examples](docs/notices.md) for privacy, confession/moderation, blocking, settings, confirmations, notifications, calls, and validation messages. Unlisted values keep their defaults. The original `CHAT_PRIVACY_NOTICE` setting still works. After later wording edits, recreate the app container and refresh the browser; no frontend rebuild is needed.

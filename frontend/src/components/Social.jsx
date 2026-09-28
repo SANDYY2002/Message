@@ -1,3 +1,4 @@
+import { noticeText } from "../notices";
 import { useConfirm } from "./ConfirmDialog";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -214,9 +215,10 @@ export default function Social({
   async function block(person) {
     if (
       !(await confirm({
-        title: `Block @${person.username}?`,
-        description:
+        title: noticeText("Block @{value0}?", { value0: person.username }),
+        description: noticeText(
           "This stops new messages, calls and social interactions. Existing chats remain readable. You can unblock them from Settings.",
+        ),
         confirmLabel: "Block user",
       }))
     )
@@ -255,12 +257,12 @@ export default function Social({
       </header>
       {error && (
         <p className="error" role="alert">
-          {error}
+          {noticeText(error)}
         </p>
       )}
       {notice && (
         <p className="social-notice" role="status">
-          {notice}
+          {noticeText(notice)}
         </p>
       )}
       <div className="social-layout">
@@ -277,7 +279,10 @@ export default function Social({
                   <div className="profile-body">
                     <Face user={profile} />
                     <h2>{profile.displayName}</h2>
-                    <p className="profile-handle">@{profile.username}</p>
+                    <p className="profile-handle">
+                      {"@"}
+                      {profile.username}
+                    </p>
                     <p className="profile-bio">
                       {profile.bio || "No bio yet."}
                     </p>
@@ -344,7 +349,9 @@ export default function Social({
                           Close
                         </button>
                       </header>
-                      {!connections.users.length && <p>No people yet.</p>}
+                      {!connections.users.length && (
+                        <p>{noticeText("No people yet.")}</p>
+                      )}
                       {connections.users.map((p) => (
                         <div className="connection-row" key={p.id}>
                           <Face user={p} onClick={() => onProfile(p.id)} />
@@ -455,7 +462,7 @@ export default function Social({
             </>
           )}
           {loading ? (
-            <p className="empty-small">Loading…</p>
+            <p className="empty-small">{noticeText("Loading…")}</p>
           ) : page === "activity" ? (
             <>
               <button
@@ -475,7 +482,9 @@ export default function Social({
                 <div className="social-empty">
                   <h2>You're all caught up</h2>
                   <p>
-                    New follows, likes, comments and reposts will appear here.
+                    {noticeText(
+                      "New follows, likes, comments and reposts will appear here.",
+                    )}
                   </p>
                 </div>
               )}
@@ -524,8 +533,8 @@ export default function Social({
                   </h2>
                   <p>
                     {mode === "following"
-                      ? "Follow people to see their posts here."
-                      : "Publish a post or explore another feed."}
+                      ? noticeText("Follow people to see their posts here.")
+                      : noticeText("Publish a post or explore another feed.")}
                   </p>
                 </div>
               )}
@@ -599,9 +608,10 @@ export default function Social({
                           onClick={async () => {
                             if (
                               await confirm({
-                                title: "Delete this post?",
-                                description:
+                                title: noticeText("Delete this post?"),
+                                description: noticeText(
                                   "This permanently removes the post, its comments and reposts. This cannot be undone.",
+                                ),
                                 confirmLabel: "Delete post",
                               })
                             )
@@ -689,10 +699,13 @@ export default function Social({
                             await navigator.clipboard.writeText(
                               `${location.origin}/?post=${p.id}`,
                             );
-                            setNotice("Post link copied.");
+                            setNotice(noticeText("Post link copied."));
                           } catch {
                             setNotice(
-                              `Post link: ${location.origin}/?post=${p.id}`,
+                              noticeText("Post link: {value0}/?post={value1}", {
+                                value0: location.origin,
+                                value1: p.id,
+                              }),
                             );
                           }
                         }}
@@ -798,7 +811,7 @@ export default function Social({
         </div>
         <aside className="people-panel">
           <h2>Find your people</h2>
-          <p>Follow someone new or start a conversation.</p>
+          <p>{noticeText("Follow someone new or start a conversation.")}</p>
           <input
             aria-label="Find people"
             placeholder="Search name or username"
@@ -849,8 +862,10 @@ export default function Social({
               </div>
             </div>
           ))}
-          {!people.length && <p>No people found.</p>}
-          <p className="group-help">Manage blocked users in Settings.</p>
+          {!people.length && <p>{noticeText("No people found.")}</p>}
+          <p className="group-help">
+            {noticeText("Manage blocked users in Settings.")}
+          </p>
         </aside>
       </div>
     </section>

@@ -1,3 +1,4 @@
+import { noticeText } from "./notices.js";
 import { allowInteraction } from "./relationships.js";
 import bcrypt from "bcryptjs";
 import multer from "multer";
@@ -36,7 +37,8 @@ export function mountProfile(app, io, limiter) {
         "SELECT token_hash FROM sessions WHERE token_hash=? AND expires_at>UTC_TIMESTAMP(3)",
         [req.auth.hash],
       );
-      if (!sessions.length) throw new HttpError(401, "Please sign in again.");
+      if (!sessions.length)
+        throw new HttpError(401, noticeText("Please sign in again."));
       await fn(q, row);
       const [updated] = await q("SELECT * FROM users WHERE id=?", [row.id]);
       return publicUser(updated);
@@ -59,7 +61,10 @@ export function mountProfile(app, io, limiter) {
   }
   app.patch("/api/profile/bio", limit, async (req, res) => {
     if (typeof req.body?.bio !== "string" || req.body.bio.trim().length > 300)
-      throw new HttpError(400, "Bio must be at most 300 characters.");
+      throw new HttpError(
+        400,
+        noticeText("Bio must be at most 300 characters."),
+      );
     const user = await update(req, (q) =>
       q("UPDATE users SET bio=? WHERE id=?", [
         req.body.bio.trim(),
@@ -83,13 +88,13 @@ export function mountProfile(app, io, limiter) {
       res.json({ user });
     } catch (e) {
       if (e.code === "ER_DUP_ENTRY")
-        throw new HttpError(409, "That username is already taken.");
+        throw new HttpError(409, noticeText("That username is already taken."));
       throw e;
     }
   });
   app.patch("/api/profile/avatar", limit, async (req, res) => {
     if (!presets.has(req.body?.preset))
-      throw new HttpError(400, "Choose an available avatar.");
+      throw new HttpError(400, noticeText("Choose an available avatar."));
     res.json({ user: await replaceAvatar(req, req.body.preset, null) });
   });
   app.post(
@@ -101,16 +106,19 @@ export function mountProfile(app, io, limiter) {
           e
             ? new HttpError(
                 e.code === "LIMIT_FILE_SIZE" ? 413 : 400,
-                "Choose one JPG, PNG or WebP image up to 2 MB.",
+                noticeText("Choose one JPG, PNG or WebP image up to 2 MB."),
               )
             : undefined,
         ),
       ),
     async (req, res) => {
-      if (!req.file) throw new HttpError(400, "Choose an image.");
+      if (!req.file) throw new HttpError(400, noticeText("Choose an image."));
       const type = await fileTypeFromBuffer(req.file.buffer);
       if (!["image/jpeg", "image/png", "image/webp"].includes(type?.mime))
-        throw new HttpError(400, "Choose a JPG, PNG or WebP image.");
+        throw new HttpError(
+          400,
+          noticeText("Choose a JPG, PNG or WebP image."),
+        );
       let image;
       try {
         image = await sharp(req.file.buffer, { limitInputPixels: 16_000_000 })
@@ -121,7 +129,9 @@ export function mountProfile(app, io, limiter) {
       } catch {
         throw new HttpError(
           400,
-          "Image could not be read. Use an image under 16 megapixels.",
+          noticeText(
+            "Image could not be read. Use an image under 16 megapixels.",
+          ),
         );
       }
       const filename = `avatar-${randomUUID()}.webp`,
@@ -142,7 +152,8 @@ export function mountProfile(app, io, limiter) {
     const [row] = await query("SELECT avatar_path FROM users WHERE id=?", [
       id(req.params.userId),
     ]);
-    if (!row?.avatar_path) throw new HttpError(404, "Avatar not found.");
+    if (!row?.avatar_path)
+      throw new HttpError(404, noticeText("Avatar not found."));
     res.type("webp").sendFile(path.join(config.uploadDir, row.avatar_path));
   });
   app.post("/api/profile/password", limit, async (req, res) => {
@@ -152,7 +163,7 @@ export function mountProfile(app, io, limiter) {
     });
     const current = req.body?.currentPassword;
     if (typeof current !== "string" || Buffer.byteLength(current) > 72)
-      throw new HttpError(400, "Enter your current password.");
+      throw new HttpError(400, noticeText("Enter your current password."));
     const hash = await bcrypt.hash(password, 12);
     await transaction(async (q) => {
       const [row] = await q(
@@ -163,9 +174,10 @@ export function mountProfile(app, io, limiter) {
         "SELECT token_hash FROM sessions WHERE token_hash=? AND expires_at>UTC_TIMESTAMP(3)",
         [req.auth.hash],
       );
-      if (!sessions.length) throw new HttpError(401, "Please sign in again.");
+      if (!sessions.length)
+        throw new HttpError(401, noticeText("Please sign in again."));
       if (!(await bcrypt.compare(current, row.password_hash)))
-        throw new HttpError(400, "Current password is incorrect.");
+        throw new HttpError(400, noticeText("Current password is incorrect."));
       await q("UPDATE users SET password_hash=? WHERE id=?", [
         hash,
         req.auth.user.id,

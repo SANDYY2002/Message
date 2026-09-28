@@ -1,3 +1,4 @@
+import { noticeText } from "./notices.js";
 import { query, transaction } from "./db.js";
 import { id, HttpError } from "./validation.js";
 import { allowInteraction, lockUsers } from "./relationships.js";
@@ -15,7 +16,8 @@ export function mountMessagingPolicy(app, io, limiter) {
   app.put("/api/blocks/:id", limit, async (req, res) => {
     const uid = req.auth.user.id,
       peer = id(req.params.id);
-    if (uid === peer) throw new HttpError(400, "You cannot block yourself.");
+    if (uid === peer)
+      throw new HttpError(400, noticeText("You cannot block yourself."));
     const conversations = await transaction(async (q) => {
       await lockUsers(q, [uid, peer]);
       await q(
@@ -66,11 +68,14 @@ export function mountMessagingPolicy(app, io, limiter) {
         if (c.kind === "group" || c.request_sender === uid)
           throw new HttpError(
             403,
-            "Only the recipient can review this request.",
+            noticeText("Only the recipient can review this request."),
           );
         if (c.request_status === "accepted") return c;
         if (c.request_status !== "pending")
-          throw new HttpError(409, "This request is no longer pending.");
+          throw new HttpError(
+            409,
+            noticeText("This request is no longer pending."),
+          );
         await q("UPDATE conversations SET request_status=? WHERE id=?", [
           action === "accept" ? "accepted" : "declined",
           cid,
@@ -86,7 +91,7 @@ export function mountMessagingPolicy(app, io, limiter) {
 export async function prepareSend(c, uid, q) {
   if (c.kind === "group") return;
   if (c.request_status === "declined")
-    throw new HttpError(403, "This message request is closed.");
+    throw new HttpError(403, noticeText("This message request is closed."));
   if (c.request_status === "pending") {
     if (c.request_sender === uid) {
       if (
@@ -98,7 +103,7 @@ export async function prepareSend(c, uid, q) {
       )
         throw new HttpError(
           403,
-          "Wait until your message request is accepted.",
+          noticeText("Wait until your message request is accepted."),
         );
     } else
       await q("UPDATE conversations SET request_status='accepted' WHERE id=?", [

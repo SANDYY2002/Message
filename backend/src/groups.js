@@ -1,20 +1,22 @@
+import { noticeText } from "./notices.js";
 import { allowInteraction } from "./relationships.js";
 import { query, transaction } from "./db.js";
 import { member, emitConversation } from "./chat.js";
 import { id, HttpError } from "./validation.js";
 function groupName(value) {
   if (typeof value !== "string" || !value.trim() || value.trim().length > 60)
-    throw new HttpError(400, "Group name must be 1–60 characters.");
+    throw new HttpError(400, noticeText("Group name must be 1–60 characters."));
   return value.trim();
 }
 async function group(cid, uid, q = query, lock = false) {
   const c = await member(cid, uid, q, lock);
-  if (c.kind !== "group") throw new HttpError(404, "Group not found.");
+  if (c.kind !== "group")
+    throw new HttpError(404, noticeText("Group not found."));
   return c;
 }
 function owner(c, uid) {
   if (c.owner_id !== uid)
-    throw new HttpError(403, "Only the group owner can do this.");
+    throw new HttpError(403, noticeText("Only the group owner can do this."));
 }
 export function mountGroups(app, io, limiter) {
   const limit = limiter(30, 60000, (req) => String(req.auth.user.id));
@@ -22,12 +24,12 @@ export function mountGroups(app, io, limiter) {
     const name = groupName(req.body?.name),
       uid = req.auth.user.id;
     if (!Array.isArray(req.body?.userIds) || req.body.userIds.length > 49)
-      throw new HttpError(400, "Choose 1–49 other people.");
+      throw new HttpError(400, noticeText("Choose 1–49 other people."));
     const users = [...new Set(req.body.userIds.map(id))].filter(
       (x) => x !== uid,
     );
     if (users.length < 1)
-      throw new HttpError(400, "Choose at least one other person.");
+      throw new HttpError(400, noticeText("Choose at least one other person."));
     const c = await transaction(async (q) => {
       for (const a of [uid, ...users])
         for (const b of users) await allowInteraction(a, b, q);
@@ -36,7 +38,10 @@ export function mountGroups(app, io, limiter) {
         users,
       );
       if (rows.length !== users.length)
-        throw new HttpError(400, "One or more people no longer exist.");
+        throw new HttpError(
+          400,
+          noticeText("One or more people no longer exist."),
+        );
       const r = await q(
         "INSERT INTO conversations(kind,name,owner_id,user_low,user_high) VALUES('group',?,?,NULL,NULL)",
         [name, uid],
@@ -82,7 +87,10 @@ export function mountGroups(app, io, limiter) {
             )
           ).length
         )
-          throw new HttpError(400, "Choose an existing member as owner.");
+          throw new HttpError(
+            400,
+            noticeText("Choose an existing member as owner."),
+          );
         await q("UPDATE conversations SET owner_id=? WHERE id=?", [next, cid]);
       }
       return c;
@@ -113,9 +121,12 @@ export function mountGroups(app, io, limiter) {
         [cid],
       );
       if (count.n >= 50)
-        throw new HttpError(400, "Groups can have at most 50 members.");
+        throw new HttpError(
+          400,
+          noticeText("Groups can have at most 50 members."),
+        );
       if (!(await q("SELECT id FROM users WHERE id=?", [next])).length)
-        throw new HttpError(404, "User not found.");
+        throw new HttpError(404, noticeText("User not found."));
       const members = await q(
         "SELECT user_id FROM group_members WHERE conversation_id=?",
         [cid],
@@ -142,7 +153,7 @@ export function mountGroups(app, io, limiter) {
       if (target === c.owner_id)
         throw new HttpError(
           400,
-          "Transfer ownership to another member before leaving.",
+          noticeText("Transfer ownership to another member before leaving."),
         );
       await q(
         "DELETE FROM group_members WHERE conversation_id=? AND user_id=?",

@@ -1,3 +1,4 @@
+import { noticeText } from "../notices";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -16,13 +17,18 @@ import { api } from "../api";
 function request(socket, event, data) {
   return new Promise((resolve, reject) => {
     if (!socket?.connected)
-      return reject(new Error("Reconnect before making a call."));
+      return reject(new Error(noticeText("Reconnect before making a call.")));
     socket.timeout(10000).emit(event, data, (timeout, result) => {
       if (timeout)
         reject(
-          new Error("Call request timed out. Please reconnect and try again."),
+          new Error(
+            noticeText(
+              "Call request timed out. Please reconnect and try again.",
+            ),
+          ),
         );
-      else if (!result?.ok) reject(new Error(result?.error || "Call failed."));
+      else if (!result?.ok)
+        reject(new Error(result?.error || noticeText("Call failed.")));
       else resolve(result);
     });
   });
@@ -93,12 +99,12 @@ export default function Calls({ socket, selected, user, connected }) {
     clear(message);
   }
   function guard(c) {
-    if (current.current !== c) throw new Error("Call ended.");
+    if (current.current !== c) throw new Error(noticeText("Call ended."));
   }
   async function prepare(c) {
     if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection)
       throw new Error(
-        "Calling needs a supported browser on HTTPS or localhost.",
+        noticeText("Calling needs a supported browser on HTTPS or localhost."),
       );
     const { iceServers } = await api("/calls/config");
     guard(c);
@@ -108,7 +114,7 @@ export default function Calls({ socket, selected, user, connected }) {
     });
     if (current.current !== c) {
       stream.getTracks().forEach((t) => t.stop());
-      throw new Error("Call ended.");
+      throw new Error(noticeText("Call ended."));
     }
     c.stream = stream;
     setLocal(stream);
@@ -125,7 +131,8 @@ export default function Calls({ socket, selected, user, connected }) {
           callId: c.callId,
           signal: { type: "candidate", candidate: e.candidate.toJSON() },
         }).catch(() => {
-          if (current.current === c) end("Call connection was lost.");
+          if (current.current === c)
+            end(noticeText("Call connection was lost."));
         });
       }
     };
@@ -138,14 +145,16 @@ export default function Calls({ socket, selected, user, connected }) {
         show(c);
       } else if (pc.connectionState === "failed")
         end(
-          "Could not connect the call. A TURN relay may be needed for these networks.",
+          noticeText(
+            "Could not connect the call. A TURN relay may be needed for these networks.",
+          ),
         );
       else if (pc.connectionState === "disconnected") {
         c.phase = "Reconnecting…";
         show(c);
         clearTimeout(c.disconnectTimer);
         c.disconnectTimer = setTimeout(() => {
-          if (current.current === c) end("Call disconnected.");
+          if (current.current === c) end(noticeText("Call disconnected."));
         }, 15000);
       }
     };
@@ -157,7 +166,9 @@ export default function Calls({ socket, selected, user, connected }) {
     c.timer = setTimeout(() => {
       if (current.current === c)
         end(
-          "The call could not connect. Check your network and TURN configuration.",
+          noticeText(
+            "The call could not connect. Check your network and TURN configuration.",
+          ),
         );
     }, 35000);
   }
@@ -190,7 +201,7 @@ export default function Calls({ socket, selected, user, connected }) {
       c.phase = "Ringing…";
       show(c);
       c.timer = setTimeout(() => {
-        if (current.current === c) end("No answer.");
+        if (current.current === c) end(noticeText("No answer."));
       }, 35000);
     } catch (e) {
       if (current.current === c) end(e.message);
@@ -305,16 +316,16 @@ export default function Calls({ socket, selected, user, connected }) {
             cancelled: "Call cancelled.",
             disconnected: "Call disconnected.",
             failed: "Call failed.",
-          }[d.status] || "Call ended.",
+          }[d.status] || noticeText("Call ended."),
         );
     };
     const claimed = (d) => {
       if (current.current?.callId === d.callId && d.socketId !== socket.id)
-        clear("Call answered on another device.");
+        clear(noticeText("Call answered on another device."));
     };
     const disconnected = () => {
       if (current.current)
-        clear("Call ended because the server connection was lost.");
+        clear(noticeText("Call ended because the server connection was lost."));
     };
     const refresh = () => {
       if (historyOpen.current) loadHistory();
@@ -392,7 +403,7 @@ export default function Calls({ socket, selected, user, connected }) {
         </button>
         {error && (
           <span role="status" className="call-notice">
-            {error}
+            {noticeText(error)}
             <button
               className="icon-button"
               aria-label="Dismiss call notice"
@@ -417,10 +428,12 @@ export default function Calls({ socket, selected, user, connected }) {
             {call && (
               <>
                 <p className="call-eyebrow">
-                  {call.kind === "video" ? "Video call" : "Voice call"}
+                  {call.kind === "video"
+                    ? noticeText("Video call")
+                    : noticeText("Voice call")}
                 </p>
                 <h2>{call.peerName}</h2>
-                <p role="status">{call.phase}</p>
+                <p role="status">{noticeText(call.phase)}</p>
                 {call.kind === "video" && (
                   <div className="call-videos">
                     <Media stream={remote} />
@@ -497,8 +510,8 @@ export default function Calls({ socket, selected, user, connected }) {
                 <X />
               </button>
             </div>
-            {historyBusy && <p role="status">Loading calls…</p>}
-            {history?.length === 0 && <p>No calls yet.</p>}
+            {historyBusy && <p role="status">{noticeText("Loading calls…")}</p>}
+            {history?.length === 0 && <p>{noticeText("No calls yet.")}</p>}
             <ul>
               {history?.map((h) => (
                 <li key={h.id}>
@@ -510,9 +523,12 @@ export default function Calls({ socket, selected, user, connected }) {
                   <div>
                     <strong>{h.peerName}</strong>
                     <p>
-                      {h.callerId === user.id ? "Outgoing" : "Incoming"} ·{" "}
+                      {h.callerId === user.id
+                        ? noticeText("Outgoing")
+                        : noticeText("Incoming")}
+                      {" ·"}{" "}
                       {h.status === "missed" && h.calleeId === user.id
-                        ? "Missed call"
+                        ? noticeText("Missed call")
                         : h.status}
                       <br />
                       <time>{new Date(h.createdAt).toLocaleString()}</time>
