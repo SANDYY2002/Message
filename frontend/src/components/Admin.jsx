@@ -1,3 +1,4 @@
+import PasswordInput from "./PasswordInput";
 import { noticeText } from "../notices";
 import { useEffect, useState } from "react";
 import { api, post } from "../api";
@@ -132,8 +133,7 @@ export default function Admin() {
           </p>
           <label>
             Password
-            <input
-              type="password"
+            <PasswordInput
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

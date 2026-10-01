@@ -86,6 +86,16 @@ test("two people can sign up, chat, share media, reconnect, and use mobile dark 
       .locator(".message-bubble")
       .getByText("Nice to see you here.", { exact: true }),
   ).toBeVisible();
+  const composer = alice.getByRole("textbox", { name: "Message", exact: true });
+  const singleLineHeight = await composer.evaluate((node) => node.clientHeight);
+  await composer.fill("First line\nSecond line\nThird line\nFourth line");
+  await expect
+    .poll(() => composer.evaluate((node) => node.clientHeight))
+    .toBeGreaterThan(singleLineHeight);
+  await composer.fill("");
+  await expect
+    .poll(() => composer.evaluate((node) => node.clientHeight))
+    .toBe(singleLineHeight);
   // Drafts survive a click on the same conversation and returning from the mobile inbox.
   await alice
     .getByRole("textbox", { name: "Message", exact: true })

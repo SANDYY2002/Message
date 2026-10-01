@@ -1,3 +1,5 @@
+import MessageInput from "./components/MessageInput";
+import PasswordInput from "./components/PasswordInput";
 import { noticeText, configureNotices } from "./notices";
 import Confessions from "./components/Confessions";
 import Admin from "./components/Admin";
@@ -321,8 +323,7 @@ function Auth({ onLogin, theme, setTheme, privacyNotice }) {
             </label>
             <label>
               Password
-              <input
-                type="password"
+              <PasswordInput
                 name="password"
                 autoComplete={register ? "new-password" : "current-password"}
                 placeholder={
@@ -1449,7 +1450,7 @@ function Chat({
                   >
                     <Paperclip size={21} />
                   </button>
-                  <textarea
+                  <MessageInput
                     aria-label="Message"
                     placeholder={
                       dragging

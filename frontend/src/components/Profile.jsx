@@ -1,3 +1,4 @@
+import PasswordInput from "./PasswordInput";
 import { noticeText } from "../notices";
 import { useEffect, useRef, useState } from "react";
 import { X, Camera, ShieldCheck, AtSign } from "lucide-react";
@@ -374,8 +375,7 @@ export default function Profile({
             </legend>
             <label>
               Current password
-              <input
-                type="password"
+              <PasswordInput
                 name="currentPassword"
                 autoComplete="current-password"
                 required
@@ -383,8 +383,7 @@ export default function Profile({
             </label>
             <label>
               New password
-              <input
-                type="password"
+              <PasswordInput
                 name="newPassword"
                 autoComplete="new-password"
                 minLength={8}
@@ -393,8 +392,7 @@ export default function Profile({
             </label>
             <label>
               Confirm new password
-              <input
-                type="password"
+              <PasswordInput
                 name="confirmPassword"
                 autoComplete="new-password"
                 minLength={8}

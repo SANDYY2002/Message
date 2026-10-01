@@ -245,5 +245,7 @@
   "NOTICE_YOU_CAN_SEND_ONE_INTRODUCTION_CALLS_AND_FURTHER_MESSAGES_UNLOCK_AFTER_ACCE": "You can send one introduction. Calls and further messages unlock after acceptance.",
   "NOTICE_YOU_HAVE_A_NEW_MESSAGE_IN_MESSAGE": "You have a new message in Message.",
   "NOTICE_YOU_HAVE_NEW_ACTIVITY_IN_MESSAGE": "You have new activity in Message.",
-  "NOTICE_YOU_WILL_LOSE_ACCESS_TO_THIS_GROUP_S_MESSAGES_A_GROUP_OWNER_WILL_NEED_TO_A": "You will lose access to this group's messages. A group owner will need to add you again."
+  "NOTICE_YOU_WILL_LOSE_ACCESS_TO_THIS_GROUP_S_MESSAGES_A_GROUP_OWNER_WILL_NEED_TO_A": "You will lose access to this group's messages. A group owner will need to add you again.",
+  "NOTICE_NETWORK_UNAVAILABLE": "Connection lost. Check your internet connection and try again.",
+  "NOTICE_SERVER_UNAVAILABLE": "The server is temporarily unavailable. Please try again shortly."
 }

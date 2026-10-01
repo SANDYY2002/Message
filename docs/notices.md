@@ -274,6 +274,9 @@ The catalog covers privacy/help notices, empty states, confirmation explanations
 | `NOTICE_YOU_HAVE_NEW_ACTIVITY_IN_MESSAGE` | You have new activity in Message. |
 | `NOTICE_YOU_WILL_LOSE_ACCESS_TO_THIS_GROUP_S_MESSAGES_A_GROUP_OWNER_WILL_NEED_TO_A` | You will lose access to this group's messages. A group owner will need to add you again. |
 
+| `NOTICE_NETWORK_UNAVAILABLE` | Connection lost. Check your internet connection and try again. |
+| `NOTICE_SERVER_UNAVAILABLE` | The server is temporarily unavailable. Please try again shortly. |
+
 ## Maintaining the catalog
 
 Keep keys stable in `shared/notices.json`. Call `noticeText(defaultText, {value0: value})` at the display boundary for new notices, and register the exact default template in the catalog. Do not translate machine-readable states or user content. Both server and frontend use the same resolver; `/api/config` returns only configured notice overrides and the legacy chat notice.

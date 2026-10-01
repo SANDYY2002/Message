@@ -1,21 +1,47 @@
 import { noticeText } from "./notices";
 export async function api(path, options = {}) {
-  const res = await fetch(`/api${path}`, {
-    credentials: "same-origin",
-    ...options,
-    headers: {
-      ...(options.body && !(options.body instanceof FormData)
-        ? { "Content-Type": "application/json" }
-        : {}),
-      ...options.headers,
-    },
-  });
+  let res;
+  try {
+    res = await fetch(`/api${path}`, {
+      credentials: "same-origin",
+      ...options,
+      headers: {
+        ...(options.body && !(options.body instanceof FormData)
+          ? { "Content-Type": "application/json" }
+          : {}),
+        ...options.headers,
+      },
+    });
+  } catch (error) {
+    if (error.name === "AbortError") throw error;
+    throw new Error(
+      noticeText(
+        "Connection lost. Check your internet connection and try again.",
+      ),
+    );
+  }
+  // Expire the session even if a proxy replaces the response body with HTML.
+  if (res.status === 401) window.dispatchEvent(new Event("session-expired"));
   if (res.status === 204) return null;
-  const data = await res.json();
-  if (!res.ok) {
-    const error = new Error(data.error || noticeText("Request failed."));
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    const error = new Error(
+      noticeText(
+        "The server is temporarily unavailable. Please try again shortly.",
+      ),
+    );
     error.status = res.status;
-    if (res.status === 401) window.dispatchEvent(new Event("session-expired"));
+    throw error;
+  }
+  if (!res.ok) {
+    const error = new Error(
+      typeof data?.error === "string"
+        ? data.error
+        : noticeText("Request failed."),
+    );
+    error.status = res.status;
     throw error;
   }
   return data;

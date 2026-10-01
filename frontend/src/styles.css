@@ -3789,3 +3789,39 @@ button:active:not(:disabled) {
 .community-card dt {
   text-transform: capitalize;
 }
+
+/* Consistent, keyboard-accessible password controls in every account form. */
+.password-field {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+.password-field input {
+  width: 100%;
+  padding-right: 52px;
+}
+.password-field .password-toggle {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 40px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  box-shadow: none;
+}
+.password-field .password-toggle:hover {
+  color: var(--text);
+  background: var(--accent-light);
+}
+.password-field .password-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
