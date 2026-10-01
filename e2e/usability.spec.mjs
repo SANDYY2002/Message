@@ -5,7 +5,7 @@ test("password visibility and readable gateway errors preserve sign-in input", a
 }) => {
   await page.goto("/");
   const password = page.locator('input[name="password"]');
-  await page.getByLabel("Username", { exact: true }).fill("sample_user");
+  await page.getByRole("textbox", { name: "Username" }).fill("sample_user");
   await password.fill("a-private-password");
   await expect(password).toHaveAttribute("type", "password");
   await page
